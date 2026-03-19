@@ -7,106 +7,100 @@ import com.flowforge.event.EventBus;
 import com.flowforge.event.LoggingListener;
 import com.flowforge.event.MetricsListener;
 import com.flowforge.event.NotificationListener;
-import com.flowforge.exception.TaskExecutionException;
 import com.flowforge.model.WorkflowDefinition;
+import com.flowforge.pipeline.*;
 import com.flowforge.task.TaskFactory;
 import com.flowforge.task.decorator.LoggingDecorator;
 import com.flowforge.task.decorator.RetryDecorator;
 
-/**
- * Entry point — demonstrates:
- *
- * 1. TEMPLATE METHOD: All tasks now follow validate() → doExecute() → cleanup()
- *    lifecycle via AbstractTask. DatabaseTask shows cleanup() hook in action.
- *
- * 2. DECORATOR: Tasks wrapped with LoggingDecorator and RetryDecorator
- *    without modifying any task class.
- *    Composition: LoggingDecorator(RetryDecorator(actualTask))
- */
+import java.util.Map;
+import java.util.Set;
+
 public class Main {
 
     public static void main(String[] args) {
         // --- Wire event system ---
         EventBus eventBus = new EventBus();
-        LoggingListener logger = new LoggingListener();
         MetricsListener metrics = new MetricsListener();
-        eventBus.subscribeAll(logger);
+        eventBus.subscribeAll(new LoggingListener());
         eventBus.subscribeAll(new NotificationListener());
         eventBus.subscribeAll(metrics);
 
-        // --- Create factory with global decorators ---
+        // --- Create factory with decorators ---
         TaskFactory factory = new TaskFactory();
-
-        // DECORATOR DEMO: wrap ALL tasks with logging + retry
-        // Composition order: LoggingDecorator → RetryDecorator → actual task
-        // So logging captures the full retry sequence
         factory.setGlobalDecorator(task ->
-                new LoggingDecorator(new RetryDecorator(task, 2, 100))
+                new LoggingDecorator(new RetryDecorator(task, 1, 100))
         );
 
         // --- Create engine ---
         WorkflowEngine engine = new WorkflowEngine(factory, eventBus);
         engine.registerStrategy(new ParallelStrategy());
 
-        // ============================================================
-        // WORKFLOW 1: ETL with Template Method lifecycle
-        // Notice: DatabaseTask shows cleanup() hook (connection returned to pool)
-        // ============================================================
+        // --- Build the pre-execution pipeline ---
+        Pipeline pipeline = new Pipeline()
+                .addHandler(new ValidationHandler(factory))
+                .addHandler(new AuthorizationHandler("admin", Set.of("Admin-Only Workflow")))
+                .addHandler(new RateLimitHandler(5000))   // 5 second cooldown
+                .addHandler(new TransformHandler());
+
+        engine.setPipeline(pipeline);
+        System.out.println("Pipeline handlers: " + pipeline.getHandlerNames());
+
+        // SCENARIO 1: Normal execution — all pipeline handlers pass
+        // Note: query uses ${timestamp} placeholder → enriched by TransformHandler
         WorkflowDefinition etl = WorkflowBuilder.create()
-                .name("ETL Pipeline (Template Method Demo)")
+                .name("ETL Pipeline")
                 .cronTrigger("0 2 * * *")
-                .addHttpGet("Extract from API", "https://api.source.com/data")
-                .addTransformTask("Normalize Data", "raw_data", "normalize")
-                .addDatabaseTask("Load to Warehouse", "INSERT INTO warehouse SELECT * FROM staging")
+                .addHttpGet("Extract Data", "https://api.source.com/data")
+                .addTransformTask("Normalize", "raw_data", "normalize")
+                .addDatabaseTask("Load", "INSERT INTO warehouse VALUES('${timestamp}', '${workflow.name}')")
                 .sequential()
                 .build();
 
-        System.out.println("\n========== WORKFLOW 1: Template Method Lifecycle ==========\n");
+        System.out.println("\n========== SCENARIO 1: Normal Pipeline Execution ==========\n");
         engine.registerWorkflow(etl);
         engine.executeWorkflow(etl.getId());
 
-        // ============================================================
-        // WORKFLOW 2: Parallel with decorators
-        // All tasks get LoggingDecorator + RetryDecorator automatically
-        // ============================================================
-        WorkflowDefinition notify = WorkflowBuilder.create()
-                .name("Parallel Notifications (Decorator Demo)")
-                .eventTrigger("order.completed")
-                .addEmailTask("Email Customer", "customer@shop.com", "Order Confirmed!")
-                .addHttpPost("Update CRM", "https://crm.api/update")
-                .addDatabaseTask("Audit Log", "INSERT INTO audit(event) VALUES('order_confirm')")
-                .parallel()
-                .build();
+        // SCENARIO 2: Authorization failure — user "intern" tries restricted workflow
+        Pipeline restrictedPipeline = new Pipeline()
+                .addHandler(new ValidationHandler(factory))
+                .addHandler(new AuthorizationHandler("intern", Set.of("Admin-Only Workflow")))
+                .addHandler(new TransformHandler());
 
-        System.out.println("\n========== WORKFLOW 2: Decorated Parallel Execution ==========\n");
-        engine.registerWorkflow(notify);
-        engine.executeWorkflow(notify.getId());
+        // Create a separate engine with restricted pipeline for this demo
+        WorkflowEngine restrictedEngine = new WorkflowEngine(factory, eventBus);
+        restrictedEngine.setPipeline(restrictedPipeline);
 
-        // ============================================================
-        // WORKFLOW 3: Validation failure demo (Template Method validate())
-        // The http task requires 'url' parameter — missing here triggers validation
-        // ============================================================
-        WorkflowDefinition badValidation = WorkflowBuilder.create()
-                .name("Validation Failure Demo")
+        WorkflowDefinition adminWorkflow = WorkflowBuilder.create()
+                .name("Admin-Only Workflow")
                 .manualTrigger()
-                .addTask("Missing URL Task", "http", java.util.Map.of(
-                        "method", "GET"
-                        // "url" is missing! validate() will catch this
-                ))
+                .addDatabaseTask("Drop Tables", "DROP TABLE users")
                 .sequential()
                 .build();
 
-        System.out.println("\n========== WORKFLOW 3: Validation Failure ==========\n");
-        engine.registerWorkflow(badValidation);
-        try {
-            engine.executeWorkflow(badValidation.getId());
-        } catch (TaskExecutionException e) {
-            System.out.println("(Caught: " + e.getMessage() + ")");
-        }
+        System.out.println("\n========== SCENARIO 2: Authorization Denied ==========\n");
+        restrictedEngine.registerWorkflow(adminWorkflow);
+        restrictedEngine.executeWorkflow(adminWorkflow.getId());
 
-        // ============================================================
+        // SCENARIO 3: Rate limiting — same workflow executed twice rapidly
+        WorkflowDefinition quickJob = WorkflowBuilder.create()
+                .name("Quick Job")
+                .webhookTrigger("/api/webhook/quick")
+                .addHttpGet("Ping", "https://api.health.com/ping")
+                .sequential()
+                .build();
+
+        System.out.println("\n========== SCENARIO 3: Rate Limiting ==========\n");
+        engine.registerWorkflow(quickJob);
+        System.out.println("--- First execution (should pass) ---");
+        engine.executeWorkflow(quickJob.getId());
+
+        // Reset status so it's executable again
+        quickJob.setStatus(com.flowforge.model.WorkflowStatus.CREATED);
+        System.out.println("\n--- Second execution immediately (should be rate limited) ---");
+        engine.executeWorkflow(quickJob.getId());
+
         // METRICS
-        // ============================================================
         System.out.println("\n========== Metrics Report ==========\n");
         metrics.printReport();
     }
