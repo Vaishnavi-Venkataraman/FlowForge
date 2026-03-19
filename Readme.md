@@ -1,8 +1,5 @@
 # FlowForge — Intelligent Workflow Automation Platform
 
-A Java-based workflow automation platform (like Zapier) built to demonstrate
-**software design patterns**, **architectural patterns**, **refactoring**, and **static code analysis**.
-
 ## Building & Running
 
 ```
@@ -10,14 +7,34 @@ mvn compile
 mvn exec:java
 ```
 
-This is the baseline "bad code" with intentional problems:
+## Current State: Commit 2 — Domain Models & Interfaces
 
-- **God class**: `WorkflowEngine` handles everything
-- **No type safety**: `HashMap<String, Object>` for domain objects
-- **Hardcoded if-else**: adding new task types requires editing the engine
-- **Tight coupling**: logging, notifications, metrics are inline
-- **No error strategy**: exceptions are swallowed or printed
-- **Non-thread-safe singleton**
-- **Magic strings** everywhere
+| Problem in Commit 1 | Fix in Commit 2 |
+|----------------------|-----------------|
+| HashMap<String,Object> for workflows | WorkflowDefinition domain model |
+| HashMap for tasks | TaskConfig with typed parameters |
+| Magic strings "completed","failed" | WorkflowStatus and TaskStatus enums |
+| Raw trigger strings | TriggerConfig + TriggerType enum |
+| if-else chain for task types | Task interface + concrete implementations |
+| println("ERROR:...") + return null | Exception hierarchy (FlowForgeException) |
+| Linear workflow search O(n) | HashMap lookup O(1) |
+| Public mutable ArrayList for logs | Private list with unmodifiable copy |
 
-These will be systematically fixed in subsequent commits.
+### Design decisions
+
+**Task interface** — This is the foundation for the Command pattern (Commit 3).
+Each task type encapsulates its own execution logic. The engine calls `task.execute(config)`
+without knowing or caring what happens inside.
+
+**Exception hierarchy** — `FlowForgeException` → `WorkflowNotFoundException`,
+`TaskExecutionException`. Callers can now catch specific failures and decide how to react.
+
+**Immutable where possible** — `TaskConfig.parameters` is unmodifiable,
+`WorkflowDefinition.tasks` is an unmodifiable list, `getLogs()` returns a copy.
+
+### Remaining problems
+
+- Task creation is a switch statement in the engine → Factory pattern
+- Only sequential execution → Strategy pattern
+- Logging/notifications are inline → Observer pattern
+- Workflow creation is verbose → Builder pattern 
