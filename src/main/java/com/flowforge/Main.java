@@ -3,53 +3,49 @@ package com.flowforge;
 import com.flowforge.adapter.*;
 import com.flowforge.adapter.thirdparty.CloudStorageSDK;
 import com.flowforge.adapter.thirdparty.RestApiClient;
-import com.flowforge.adapter.thirdparty.SoapServiceClient;
 import com.flowforge.engine.WorkflowBuilder;
 import com.flowforge.engine.WorkflowEngine;
 import com.flowforge.event.EventBus;
 import com.flowforge.event.LoggingListener;
-import com.flowforge.event.MetricsListener;
-import com.flowforge.event.NotificationListener;
 import com.flowforge.model.WorkflowDefinition;
 import com.flowforge.pipeline.*;
 import com.flowforge.plugin.PluginContext;
 import com.flowforge.plugin.PluginRegistry;
-import com.flowforge.plugin.builtin.AuditTrailPlugin;
 import com.flowforge.plugin.builtin.FileOperationsPlugin;
-import com.flowforge.plugin.builtin.SlackNotificationPlugin;
+import com.flowforge.service.*;
 import com.flowforge.task.TaskFactory;
 import com.flowforge.task.decorator.LoggingDecorator;
 
 import java.util.Map;
 import java.util.Set;
 
-/**
- * Entry point — demonstrates Adapter pattern.
- *
- * THREE incompatible external services all used through ONE unified interface:
- *
- *   REST API   (RestApiClient)    → RestServiceAdapter    → ExternalService
- *   SOAP/XML   (SoapServiceClient) → SoapServiceAdapter   → ExternalService
- *   Cloud S3   (CloudStorageSDK)  → CloudStorageAdapter   → ExternalService
- *
- * Tasks call ExternalService.execute() — they don't know the protocol.
- * Adapters translate between our interface and each vendor's API.
- */
 public class Main {
 
     public static void main(String[] args) {
 
         // ============================================================
-        // CORE SETUP
+        // INFRASTRUCTURE: ServiceBus (simulates Kafka/RabbitMQ)
+        // ============================================================
+        System.out.println("========== Infrastructure Setup ==========\n");
+        ServiceBus serviceBus = new ServiceBus();
+
+        // ============================================================
+        // CORE ENGINE SETUP (internal to ExecutionService)
         // ============================================================
         EventBus eventBus = new EventBus();
-        MetricsListener metrics = new MetricsListener();
         eventBus.subscribeAll(new LoggingListener());
-        eventBus.subscribeAll(new NotificationListener());
-        eventBus.subscribeAll(metrics);
 
         TaskFactory factory = new TaskFactory();
         factory.setGlobalDecorator(LoggingDecorator::new);
+
+        // Adapter setup
+        ServiceRegistry serviceRegistry = new ServiceRegistry();
+        serviceRegistry.register(new RestServiceAdapter("crm-api", "CRM REST API",
+                new RestApiClient("https://api.crm.com")));
+        serviceRegistry.register(new CloudStorageAdapter("data-lake", "Data Lake",
+                new CloudStorageSDK("us-east-1", "acct-123")));
+        factory.registerTaskType("external_service",
+                name -> new ExternalServiceTask(name, serviceRegistry));
 
         Pipeline pipeline = new Pipeline()
                 .addHandler(new ValidationHandler(factory))
@@ -59,138 +55,83 @@ public class Main {
         WorkflowEngine engine = new WorkflowEngine(factory, eventBus);
         engine.setPipeline(pipeline);
 
-        // ============================================================
-        // PLUGIN SETUP
-        // ============================================================
+        // Plugin setup
         PluginContext pluginCtx = new PluginContext(factory, eventBus, pipeline, engine::registerStrategy);
         PluginRegistry plugins = new PluginRegistry(pluginCtx);
-        AuditTrailPlugin auditPlugin = new AuditTrailPlugin();
         plugins.register(new FileOperationsPlugin());
-        plugins.register(new SlackNotificationPlugin("https://hooks.slack.com/XXX", "#ops"));
-        plugins.register(auditPlugin);
         plugins.initializeAll();
         plugins.startAll();
 
         // ============================================================
-        // ADAPTER SETUP — 3 incompatible services adapted to one interface
+        // MICROSERVICES: 5 independent services connected via ServiceBus
         // ============================================================
-        System.out.println("\n========== Adapter Setup ==========\n");
+        System.out.println("\n========== Service Startup ==========\n");
 
-        ServiceRegistry serviceRegistry = new ServiceRegistry();
-
-        // 1. REST API adapter
-        RestApiClient restClient = new RestApiClient("https://api.crm.example.com");
-        serviceRegistry.register(new RestServiceAdapter("crm-api", "CRM REST API", restClient));
-
-        // 2. SOAP adapter (legacy ERP)
-        SoapServiceClient soapClient = new SoapServiceClient("https://erp.legacy.com/ws?wsdl");
-        serviceRegistry.register(new SoapServiceAdapter("erp-legacy", "ERP SOAP Service", soapClient));
-
-        // 3. Cloud Storage adapter (S3-compatible)
-        CloudStorageSDK storageSDK = new CloudStorageSDK("us-east-1", "acct-12345");
-        serviceRegistry.register(new CloudStorageAdapter("data-lake", "Cloud Data Lake", storageSDK));
-
-        // Register the ExternalServiceTask type in the factory
-        factory.registerTaskType("external_service",
-                name -> new ExternalServiceTask(name, serviceRegistry));
-
-        // Health check all services
-        System.out.println();
-        serviceRegistry.healthCheckAll();
+        ExecutionService executionService = new ExecutionService(engine, serviceBus);
+        NotificationService notificationService = new NotificationService(serviceBus);
+        AnalyticsService analyticsService = new AnalyticsService(serviceBus);
+        AuditService auditService = new AuditService(serviceBus);
+        TriggerService triggerService = new TriggerService(serviceBus);
 
         // ============================================================
-        // WORKFLOW 1: REST API integration
+        // REGISTER WORKFLOWS
         // ============================================================
-        WorkflowDefinition restWorkflow = WorkflowBuilder.create()
-                .name("CRM Data Sync (REST)")
-                .cronTrigger("0 */2 * * *")
-                .addTask("Fetch Customers", "external_service", Map.of(
-                        "serviceId", "crm-api",
-                        "operation", "GET",
-                        "path", "/customers?active=true"))
-                .addTransformTask("Normalize CRM Data", "customer_json", "flatten")
-                .addDatabaseTask("Upsert to Local DB", "CALL sp_upsert_customers()")
+        System.out.println("\n========== Register Workflows ==========\n");
+
+        WorkflowDefinition etl = WorkflowBuilder.create()
+                .name("ETL Pipeline")
+                .cronTrigger("0 2 * * *")
+                .addHttpGet("Extract", "https://api.source.com/data")
+                .addTransformTask("Transform", "raw", "normalize")
+                .addDatabaseTask("Load", "INSERT INTO warehouse SELECT * FROM staging")
                 .sequential()
                 .build();
+        String etlId = executionService.registerWorkflow(etl);
+        triggerService.registerTrigger(etlId, etl.getName(), "CRON", "0 2 * * *");
 
-        System.out.println("\n========== WORKFLOW 1: REST API Adapter ==========\n");
-        engine.registerWorkflow(restWorkflow);
-        engine.executeWorkflow(restWorkflow.getId());
-
-        // ============================================================
-        // WORKFLOW 2: SOAP/XML legacy integration
-        // ============================================================
-        WorkflowDefinition soapWorkflow = WorkflowBuilder.create()
-                .name("ERP Invoice Sync (SOAP)")
-                .cronTrigger("0 6 * * *")
-                .addTask("Fetch Invoices", "external_service", Map.of(
-                        "serviceId", "erp-legacy",
-                        "operation", "GetPendingInvoices",
-                        "department", "SALES",
-                        "status", "PENDING"))
-                .addTransformTask("Parse XML Response", "soap_xml", "xml_to_json")
-                .addEmailTask("Send Invoice Report", "finance@company.com", "Pending Invoices Report")
-                .sequential()
-                .build();
-
-        System.out.println("\n========== WORKFLOW 2: SOAP Adapter ==========\n");
-        engine.registerWorkflow(soapWorkflow);
-        engine.executeWorkflow(soapWorkflow.getId());
-
-        // ============================================================
-        // WORKFLOW 3: Cloud Storage integration
-        // ============================================================
-        WorkflowDefinition s3Workflow = WorkflowBuilder.create()
-                .name("Data Lake Upload (Cloud Storage)")
-                .webhookTrigger("/api/data/upload")
-                .addDatabaseTask("Export Report", "COPY report TO '/tmp/report.csv'")
-                .addTask("Upload to Data Lake", "external_service", Map.of(
-                        "serviceId", "data-lake",
-                        "operation", "UPLOAD",
-                        "bucket", "analytics-raw",
-                        "key", "reports/${timestamp}/report.csv",
-                        "content", "csv-data-here"))
-                .sequential()
-                .build();
-
-        System.out.println("\n========== WORKFLOW 3: Cloud Storage Adapter ==========\n");
-        engine.registerWorkflow(s3Workflow);
-        engine.executeWorkflow(s3Workflow.getId());
-
-        // ============================================================
-        // WORKFLOW 4: Multi-protocol — one workflow using ALL adapters
-        // ============================================================
-        WorkflowDefinition multiProtocol = WorkflowBuilder.create()
-                .name("Full Integration Pipeline")
-                .manualTrigger()
-                .addTask("Fetch from CRM (REST)", "external_service", Map.of(
-                        "serviceId", "crm-api", "operation", "GET", "path", "/deals"))
-                .addTask("Get ERP Data (SOAP)", "external_service", Map.of(
-                        "serviceId", "erp-legacy", "operation", "GetDealFinancials",
-                        "dealId", "DEAL-789"))
-                .addTransformTask("Merge Data", "combined", "merge")
-                .addTask("Store in Lake (S3)", "external_service", Map.of(
+        WorkflowDefinition webhook = WorkflowBuilder.create()
+                .name("Webhook Handler")
+                .webhookTrigger("/api/orders/new")
+                .addTask("Fetch Order", "external_service", Map.of(
+                        "serviceId", "crm-api", "operation", "GET", "path", "/orders/latest"))
+                .addEmailTask("Confirm Order", "customer@shop.com", "Order Received!")
+                .addTask("Archive to Lake", "external_service", Map.of(
                         "serviceId", "data-lake", "operation", "UPLOAD",
-                        "bucket", "merged-data", "key", "deals/latest.json",
-                        "content", "merged-json-data"))
-                .addEmailTask("Notify Team", "team@company.com", "Integration pipeline complete")
+                        "bucket", "orders", "key", "latest.json", "content", "order-data"))
                 .sequential()
                 .build();
+        String webhookId = executionService.registerWorkflow(webhook);
+        triggerService.registerTrigger(webhookId, webhook.getName(), "WEBHOOK", "/api/orders/new");
 
-        System.out.println("\n========== WORKFLOW 4: Multi-Protocol (REST+SOAP+S3) ==========\n");
-        engine.registerWorkflow(multiProtocol);
-        engine.executeWorkflow(multiProtocol.getId());
+        WorkflowDefinition failWorkflow = WorkflowBuilder.create()
+                .name("Failing Workflow")
+                .manualTrigger()
+                .addTask("Bad Task", "nonexistent", Map.of())
+                .sequential()
+                .build();
+        String failId = executionService.registerWorkflow(failWorkflow);
+        triggerService.registerTrigger(failId, failWorkflow.getName(), "MANUAL", "");
 
         // ============================================================
-        // REPORTS
+        // SIMULATE: Triggers fire → services react via bus
         // ============================================================
-        System.out.println("\n========== Metrics ==========\n");
-        metrics.printReport();
+        System.out.println("\n========== Scenario 1: Cron Trigger Fires ==========\n");
+        triggerService.fireTrigger(etlId);
 
-        System.out.println("\n========== Audit Trail ==========\n");
-        auditPlugin.printAuditTrail();
+        System.out.println("\n========== Scenario 2: Webhook Received ==========\n");
+        triggerService.simulateWebhook("/api/orders/new");
 
-        System.out.println("\n========== Shutdown ==========\n");
-        plugins.stopAll();
+        System.out.println("\n========== Scenario 3: Manual Trigger (will fail) ==========\n");
+        triggerService.fireTrigger(failId);
+
+        // ============================================================
+        // SERVICE DASHBOARDS — each service reports independently
+        // ============================================================
+        System.out.println("\n========== Service Dashboards ==========\n");
+        notificationService.printSummary();
+        System.out.println();
+        analyticsService.printDashboard();
+        System.out.println();
+        auditService.printAuditLog();
     }
 }
