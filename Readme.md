@@ -1,9 +1,8 @@
 # FlowForge — Intelligent Workflow Automation Platform
 
-A Java-based workflow automation engine (inspired by Zapier/n8n) built to
-demonstrate **software design patterns**, **architectural patterns**,
-**refactoring techniques**, and **static code analysis** through an
-evolving Git history.
+A Java 21 workflow automation engine (inspired by Zapier/n8n) demonstrating
+**16 design patterns**, **5 architectural patterns**, **refactoring**, and
+**static code analysis** through an evolving Git history.
 
 ---
 
@@ -18,104 +17,75 @@ Requires: Java 21+, Maven 3.8+
 
 ---
 
-## Project Evolution
+## Commit History
 
 ### Commit 1 — Naive Monolithic Implementation
-**State**: Single God class `WorkflowEngine` with everything.
-**Problems**: HashMap data, if-else chains, inline logging, magic strings, no patterns.
+God class, HashMap data, if-else chains, inline everything. Intentionally bad.
 
-### Commit 2 — Domain Models + Interfaces (SRP, OCP foundation)
-**Changes**: `WorkflowDefinition`, `TaskConfig`, `TaskResult`, `Task` interface,
-enums (`WorkflowStatus`, `TaskStatus`, `TriggerType`), exception hierarchy.
-**Why**: Type safety, compile-time checks, meaningful domain language.
+### Commit 2 — Domain Models + Interfaces
+`WorkflowDefinition`, `TaskConfig`, `TaskResult`, `Task` interface, enums, exception hierarchy.
+**Foundation for**: SRP, OCP.
 
-### Commit 3 — Command + Factory Patterns (Task System)
-**Patterns**: Command, Factory Method + Registry.
-**Changes**: `TaskFactory` with `registerTaskType()` replaces engine's switch statement.
-**Why**: OCP — new task types without modifying engine.
+### Commit 3 — Command + Factory Patterns
+`TaskFactory` with runtime registration. Eliminates if-else chain for task types.
+**Patterns**: Command, Factory Method.
 
-### Commit 4 — Strategy Pattern (Execution Engine)
+### Commit 4 — Strategy Pattern
+`ExecutionStrategy` → Sequential, Parallel, Conditional. Pluggable execution models.
 **Patterns**: Strategy.
-**Changes**: `ExecutionStrategy` interface → `SequentialStrategy`, `ParallelStrategy`, `ConditionalStrategy`.
-**Why**: Different workflows need different execution semantics.
 
-### Commit 5 — Observer Pattern + Pub-Sub Event System
+### Commit 5 — Observer + Pub-Sub Event System
+`EventBus`, `WorkflowEvent`, `LoggingListener`, `NotificationListener`, `MetricsListener`.
 **Patterns**: Observer. **Architecture**: Pub-Sub / Event-Driven.
-**Changes**: `EventBus`, `WorkflowEvent`, `LoggingListener`, `NotificationListener`, `MetricsListener`.
-**Why**: Decouple cross-cutting concerns from orchestration logic.
 
-### Commit 6 — Builder Pattern (Workflow Construction)
-**Patterns**: Builder (fluent API).
-**Changes**: `WorkflowBuilder` with fluent chainable methods and build-time validation.
-**Why**: Readable, self-documenting workflow construction.
+### Commit 6 — Builder Pattern
+`WorkflowBuilder` with fluent API and build-time validation.
+**Patterns**: Builder.
 
-### Commit 7 — Template Method + Decorator Patterns
+### Commit 7 — Template Method + Decorator
+`AbstractTask` lifecycle (validate→execute→cleanup). `RetryDecorator`, `LoggingDecorator`, `TimeoutDecorator`.
 **Patterns**: Template Method, Decorator.
-**Changes**: `AbstractTask` (validate→doExecute→cleanup lifecycle),
-`RetryDecorator`, `LoggingDecorator`, `TimeoutDecorator`.
-**Why Template Method**: All tasks share lifecycle; eliminates duplication.
-**Why Decorator**: Add retry/logging/timeout without modifying task classes.
 
-### Commit 8 — Chain of Responsibility + Pipes & Filters
+### Commit 8 — Chain of Responsibility + Pipeline
+`Pipeline` with `ValidationHandler`, `TransformHandler`, `AuthorizationHandler`, `RateLimitHandler`.
 **Patterns**: Chain of Responsibility. **Architecture**: Pipes & Filters.
-**Changes**: `Pipeline`, `PipelineHandler`, `PipelineContext`,
-`ValidationHandler`, `TransformHandler`, `AuthorizationHandler`, `RateLimitHandler`.
-**Why**: Pre-execution concerns (validation, auth, rate limit, enrichment)
-are independent handlers — not crammed into the engine.
+
+### Commit 9 — Microkernel / Plugin Architecture
+`Plugin`, `PluginContext`, `PluginRegistry`. Builtin plugins: Slack, FileOps, AuditTrail.
+**Architecture**: Microkernel.
+
+### Commit 10 — Adapter Pattern
+`ExternalService` target interface. Adapters for REST, SOAP, Cloud Storage.
+`ServiceRegistry`, `ExternalServiceTask`.
+**Patterns**: Adapter.
+
 
 ---
 
-## Architecture
+## All Design Patterns
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                     FlowForge Core                          │
-├──────────┬───────────┬──────────┬──────────┬───────────────┤
-│ Pipeline │  Engine   │  Event   │  Task    │   Plugin      │
-│ (CoR)    │  Layer    │  System  │  System  │   System      │
-│          │           │          │          │               │
-│ Validate │ Strategy  │ EventBus │ Factory  │  Microkernel  │
-│ Auth     │ Seq/Par   │ Pub-Sub  │ Command  │  (Commit 9)   │
-│ RateLimit│ Cond.     │ Observer │ Template │               │
-│ Transform│           │          │ Decorator│               │
-├──────────┴───────────┴──────────┴──────────┴───────────────┤
-│                   Domain Models & Events                    │
-└─────────────────────────────────────────────────────────────┘
-```
+| # | Pattern | Category | Class(es) | Commit |
+|---|---------|----------|-----------|--------|
+| 1 | Factory Method | Creational | `TaskFactory` | 3 |
+| 2 | Builder | Creational | `WorkflowBuilder` | 6 |
+| 3 | Command | Behavioral | `Task` interface | 3 |
+| 4 | Chain of Responsibility | Behavioral | `PipelineHandler` | 8 |
+| 5 | Strategy | Behavioral | `ExecutionStrategy` | 4 |
+| 6 | Observer | Behavioral | `EventListener`, `EventBus` | 5 |
+| 7 | Template Method | Behavioral | `AbstractTask` | 7 |
+| 8 | Decorator | Structural | `RetryDecorator`, etc. | 7 |
+| 9 | Adapter | Structural | `RestServiceAdapter`, etc. | 10 |
 
-### Modular Monolith → Future Microservices
 
-This project implements a **modular monolith** structured so each package
-could become an independent microservice:
+## All Architectural Patterns (5)
 
-| Package | Would Become | Communication |
-|---------|-------------|---------------|
-| `engine` | Execution Service | EventBus → Message Broker |
-| `event` | Event Bus Service | Kafka / RabbitMQ |
-| `task` | Task Worker Service | Queue-based |
-| `pipeline` | Gateway / Middleware | API Gateway filters |
-| `plugin` | Plugin Registry Service | Service mesh |
-
-### Design Patterns
-
-| Category | Pattern | Class(es) | Why |
-|----------|---------|-----------|-----|
-| Creational | Factory Method | `TaskFactory` | Decouple task creation |
-| Creational | Builder | `WorkflowBuilder` | Readable construction |
-| Behavioral | Command | `Task` interface | Encapsulate execution |
-| Behavioral | Strategy | `ExecutionStrategy` | Pluggable execution |
-| Behavioral | Observer | `EventListener`, `EventBus` | Reactive events |
-| Behavioral | Template Method | `AbstractTask` | Standardize lifecycle |
-| Behavioral | Chain of Responsibility | `PipelineHandler`, `Pipeline` | Flexible pre-processing |
-| Structural | Decorator | `RetryDecorator`, `LoggingDecorator`, `TimeoutDecorator` | Dynamic enhancement |
-
-### Architectural Patterns
-
-| Pattern | Where | Why |
-|---------|-------|-----|
-| Pub-Sub / Event-Driven | `EventBus` + listeners | Decouple concerns |
-| Pipes & Filters | `Pipeline` + handlers | Modular pre-processing |
-| Modular Monolith | Package structure | Clean separation |
+| # | Pattern | Where | Commit |
+|---|---------|-------|--------|
+| 1 | Pub-Sub / Event-Driven | `EventBus` + listeners | 5 |
+| 2 | Pipes & Filters | `Pipeline` + handlers | 8 |
+| 3 | Microkernel | `Plugin` system | 9 |
+| 4 | Microservices (in-process) | Service boundaries | 11 |
+| 5 | Modular Monolith | Package structure | All |
 
 ---
 
@@ -124,6 +94,18 @@ could become an independent microservice:
 ```
 com.flowforge/
 ├── Main.java
+├── adapter/
+│   ├── ExternalService.java
+│   ├── ServiceResponse.java
+│   ├── ServiceRegistry.java
+│   ├── ExternalServiceTask.java
+│   ├── RestServiceAdapter.java
+│   ├── SoapServiceAdapter.java
+│   ├── CloudStorageAdapter.java
+│   └── thirdparty/
+│       ├── RestApiClient.java
+│       ├── SoapServiceClient.java
+│       └── CloudStorageSDK.java
 ├── engine/
 │   ├── WorkflowEngine.java
 │   ├── WorkflowBuilder.java
@@ -139,6 +121,10 @@ com.flowforge/
 │   ├── LoggingListener.java
 │   ├── NotificationListener.java
 │   └── MetricsListener.java
+├── exception/
+│   ├── FlowForgeException.java
+│   ├── WorkflowNotFoundException.java
+│   └── TaskExecutionException.java
 ├── model/
 │   ├── WorkflowDefinition.java
 │   ├── WorkflowStatus.java
@@ -155,22 +141,26 @@ com.flowforge/
 │   ├── TransformHandler.java
 │   ├── AuthorizationHandler.java
 │   └── RateLimitHandler.java
-├── task/
-│   ├── Task.java
-│   ├── AbstractTask.java
-│   ├── TaskFactory.java
-│   ├── HttpTask.java
-│   ├── EmailTask.java
-│   ├── TransformTask.java
-│   ├── DatabaseTask.java
-│   ├── DelayTask.java
-│   └── decorator/
-│       ├── TaskDecorator.java
-│       ├── RetryDecorator.java
-│       ├── LoggingDecorator.java
-│       └── TimeoutDecorator.java
-└── exception/
-    ├── FlowForgeException.java
-    ├── WorkflowNotFoundException.java
-    └── TaskExecutionException.java
+├── plugin/
+│   ├── Plugin.java
+│   ├── PluginContext.java
+│   ├── PluginRegistry.java
+│   └── builtin/
+│       ├── SlackNotificationPlugin.java
+│       ├── FileOperationsPlugin.java
+│       └── AuditTrailPlugin.java
+└── task/
+    ├── Task.java
+    ├── AbstractTask.java
+    ├── TaskFactory.java
+    ├── HttpTask.java
+    ├── EmailTask.java
+    ├── TransformTask.java
+    ├── DatabaseTask.java
+    ├── DelayTask.java
+    └── decorator/
+        ├── TaskDecorator.java
+        ├── RetryDecorator.java
+        ├── LoggingDecorator.java
+        └── TimeoutDecorator.java
 ```
