@@ -6,24 +6,17 @@ import com.flowforge.event.EventBus;
 import com.flowforge.event.WorkflowEvent;
 import com.flowforge.exception.TaskExecutionException;
 import com.flowforge.exception.WorkflowNotFoundException;
+import com.flowforge.model.TaskConfig;
 import com.flowforge.model.TaskResult;
 import com.flowforge.model.WorkflowDefinition;
 import com.flowforge.pipeline.Pipeline;
 import com.flowforge.pipeline.PipelineContext;
 import com.flowforge.task.TaskFactory;
 
+import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * Workflow execution engine.
- *
- * REFACTORING (Commit 14):
- * - HashMap → ConcurrentHashMap for thread-safe workflow/strategy storage
- * - workflow.setStatus() → workflow.markRunning()/markCompleted()/markFailed()
- * - Removed direct System.out.println — pipeline logs now go through EventBus
- * - All fields are final
- */
 public class WorkflowEngine {
 
     private final Map<String, WorkflowDefinition> workflows = new ConcurrentHashMap<>();
@@ -52,57 +45,77 @@ public class WorkflowEngine {
         return workflow.getId();
     }
 
+    /**
+     * Main execution method — orchestrates pipeline + strategy.
+     * Each phase is extracted into a focused helper method.
+     */
     public void executeWorkflow(String workflowId) {
-        WorkflowDefinition workflow = workflows.get(workflowId);
-        if (workflow == null) {
-            throw new WorkflowNotFoundException(workflowId);
-        }
+        WorkflowDefinition workflow = findWorkflow(workflowId);
 
         if (!workflow.getStatus().isExecutable()) {
             return;
         }
 
-        // --- Pipeline pre-processing ---
-        PipelineContext pipelineResult = null;
-        if (pipeline != null) {
-            PipelineContext context = new PipelineContext(workflow);
-            pipelineResult = pipeline.execute(context);
-
-            // Publish pipeline logs as events instead of println
-            for (String log : pipelineResult.getProcessingLog()) {
-                eventBus.publish(WorkflowEvent.pipelineLog(workflow.getName(), workflow.getId(), log));
-            }
-
-            if (pipelineResult.isAborted()) {
-                workflow.markFailed();
-                eventBus.publish(WorkflowEvent.workflowFailed(
-                        workflow.getName(), workflow.getId(),
-                        "Pipeline aborted: " + pipelineResult.getAbortReason()));
-                return;
-            }
+        List<TaskConfig> tasksToExecute = runPipeline(workflow);
+        if (tasksToExecute == null) {
+            return; // Pipeline aborted
         }
 
-        // --- Execute with strategy ---
+        runWithStrategy(workflow, tasksToExecute);
+    }
+
+    /**
+     * Looks up a workflow by ID.
+     * @throws WorkflowNotFoundException if not found
+     */
+    private WorkflowDefinition findWorkflow(String workflowId) {
+        WorkflowDefinition workflow = workflows.get(workflowId);
+        if (workflow == null) {
+            throw new WorkflowNotFoundException(workflowId);
+        }
+        return workflow;
+    }
+
+    /**
+     * Runs the pre-execution pipeline. Returns the (possibly enriched) task list,
+     * or null if the pipeline aborted.
+     */
+    private List<TaskConfig> runPipeline(WorkflowDefinition workflow) {
+        if (pipeline == null) {
+            return workflow.getTasks();
+        }
+
+        PipelineContext context = new PipelineContext(workflow);
+        PipelineContext result = pipeline.execute(context);
+
+        for (String log : result.getProcessingLog()) {
+            eventBus.publish(WorkflowEvent.pipelineLog(workflow.getName(), workflow.getId(), log));
+        }
+
+        if (result.isAborted()) {
+            workflow.markFailed();
+            eventBus.publish(WorkflowEvent.workflowFailed(
+                    workflow.getName(), workflow.getId(),
+                    "Pipeline aborted: " + result.getAbortReason()));
+            return null;
+        }
+
+        return result.getProcessedTasks();
+    }
+
+    /**
+     * Executes tasks using the workflow's chosen strategy.
+     */
+    private void runWithStrategy(WorkflowDefinition workflow, List<TaskConfig> tasks) {
         ExecutionStrategy strategy = resolveStrategy(workflow.getExecutionStrategyName());
+
         workflow.markRunning();
         eventBus.publish(WorkflowEvent.workflowStarted(
                 workflow.getName(), workflow.getId(), strategy.getName()));
 
         try {
-            var tasksToExecute = (pipelineResult != null)
-                    ? pipelineResult.getProcessedTasks()
-                    : workflow.getTasks();
-
-            Map<String, TaskResult> results = strategy.execute(tasksToExecute, taskFactory);
-
-            for (Map.Entry<String, TaskResult> entry : results.entrySet()) {
-                TaskResult result = entry.getValue();
-                if (result.isSuccess()) {
-                    eventBus.publish(WorkflowEvent.taskCompleted(
-                            workflow.getName(), workflow.getId(),
-                            entry.getKey(), result.getDuration().toMillis()));
-                }
-            }
+            Map<String, TaskResult> results = strategy.execute(tasks, taskFactory);
+            publishTaskResults(workflow, results);
 
             workflow.markCompleted();
             eventBus.publish(WorkflowEvent.workflowCompleted(
@@ -113,6 +126,16 @@ public class WorkflowEngine {
             eventBus.publish(WorkflowEvent.workflowFailed(
                     workflow.getName(), workflow.getId(), e.getMessage()));
             throw e;
+        }
+    }
+
+    private void publishTaskResults(WorkflowDefinition workflow, Map<String, TaskResult> results) {
+        for (Map.Entry<String, TaskResult> entry : results.entrySet()) {
+            if (entry.getValue().isSuccess()) {
+                eventBus.publish(WorkflowEvent.taskCompleted(
+                        workflow.getName(), workflow.getId(),
+                        entry.getKey(), entry.getValue().getDuration().toMillis()));
+            }
         }
     }
 

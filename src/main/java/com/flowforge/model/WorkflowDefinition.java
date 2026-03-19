@@ -1,12 +1,10 @@
 package com.flowforge.model;
-
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 
-/* REFACTORING: Removed public setStatus() - state transitions are now guarded methods*/
 public class WorkflowDefinition {
 
     private final String id;
@@ -38,6 +36,8 @@ public class WorkflowDefinition {
         this.executionStrategyName = executionStrategyName != null
                 ? executionStrategyName : "sequential";
     }
+
+    // --- Guarded state transitions ---
 
     /**
      * Transitions to RUNNING. Only valid from CREATED or PAUSED.
@@ -94,6 +94,21 @@ public class WorkflowDefinition {
     public Instant getCreatedAt() { return createdAt; }
     public WorkflowStatus getStatus() { return status; }
     public String getExecutionStrategyName() { return executionStrategyName; }
+
+    /**
+     * Convenience: returns trigger type name without breaking Law of Demeter.
+     * Callers use this instead of getTrigger().getType().name().
+     */
+    public String getTriggerTypeName() {
+        return trigger != null ? trigger.getType().name() : "NONE";
+    }
+
+    /**
+     * Convenience: returns trigger value without chaining.
+     */
+    public String getTriggerValue() {
+        return trigger != null ? trigger.getValue() : "";
+    }
 
     @Override
     public String toString() {

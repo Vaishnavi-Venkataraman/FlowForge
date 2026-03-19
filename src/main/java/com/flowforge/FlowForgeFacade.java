@@ -25,6 +25,10 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
+/**
+ * Facade that hides ALL internal wiring complexity behind a simple API.
+ * The holder pattern is the modern Java singleton — lazy, thread-safe, no locks.
+ */
 public class FlowForgeFacade {
 
     // --- Singleton via Holder pattern (lazy, thread-safe) ---
@@ -104,8 +108,8 @@ public class FlowForgeFacade {
         String id = executionService.registerWorkflow(workflow);
         if (workflow.getTrigger() != null) {
             triggerService.registerTrigger(id, workflow.getName(),
-                    workflow.getTrigger().getType().name(),
-                    workflow.getTrigger().getValue());
+                    workflow.getTriggerTypeName(),
+                    workflow.getTriggerValue());
         }
         return id;
     }
