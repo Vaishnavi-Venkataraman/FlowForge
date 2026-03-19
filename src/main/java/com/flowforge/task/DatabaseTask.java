@@ -1,24 +1,17 @@
 package com.flowforge.task;
 
 import com.flowforge.model.TaskConfig;
-import com.flowforge.model.TaskResult;
-
-import java.time.Instant;
 
 /**
- * Simulates a database query execution.
+ * Database task — refactored with Template Method lifecycle.
+ *
+ * Demonstrates the cleanup() hook: in a real implementation,
+ * cleanup() would close database connections / release pool resources.
  */
-public class DatabaseTask implements Task {
-
-    private final String name;
+public class DatabaseTask extends AbstractTask {
 
     public DatabaseTask(String name) {
-        this.name = name;
-    }
-
-    @Override
-    public String getName() {
-        return name;
+        super(name);
     }
 
     @Override
@@ -27,10 +20,20 @@ public class DatabaseTask implements Task {
     }
 
     @Override
-    public TaskResult execute(TaskConfig config) {
-        Instant start = Instant.now();
+    protected void validate(TaskConfig config) {
+        config.getRequiredParameter("query");
+    }
+
+    @Override
+    protected String doExecute(TaskConfig config) {
         String query = config.getRequiredParameter("query");
-        System.out.println("  Executing query: " + query);
-        return TaskResult.success("Query executed, 5 rows affected", start);
+        System.out.println("    Executing query: " + query);
+        return "Query executed, 5 rows affected";
+    }
+
+    @Override
+    protected void cleanup(TaskConfig config) {
+        // In a real system: close connection, return to pool
+        System.out.println("    [DatabaseTask] Connection returned to pool");
     }
 }

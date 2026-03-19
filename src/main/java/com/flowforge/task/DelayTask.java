@@ -1,24 +1,15 @@
 package com.flowforge.task;
 
 import com.flowforge.model.TaskConfig;
-import com.flowforge.model.TaskResult;
-
-import java.time.Instant;
 
 /**
- * Introduces a configurable delay into the workflow pipeline.
+ * Delay task — introduces a configurable wait into the pipeline.
+ * Refactored with Template Method lifecycle.
  */
-public class DelayTask implements Task {
-
-    private final String name;
+public class DelayTask extends AbstractTask {
 
     public DelayTask(String name) {
-        this.name = name;
-    }
-
-    @Override
-    public String getName() {
-        return name;
+        super(name);
     }
 
     @Override
@@ -27,16 +18,23 @@ public class DelayTask implements Task {
     }
 
     @Override
-    public TaskResult execute(TaskConfig config) {
-        Instant start = Instant.now();
-        int seconds = Integer.parseInt(config.getParameter("seconds", "1"));
-        System.out.println("  Waiting " + seconds + " seconds...");
+    protected void validate(TaskConfig config) {
+        String seconds = config.getParameter("seconds", "1");
         try {
-            Thread.sleep(seconds * 1000L);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            return TaskResult.failure("Delay interrupted", start);
+            int val = Integer.parseInt(seconds);
+            if (val < 0) {
+                throw new IllegalArgumentException("Delay seconds must be non-negative, got: " + val);
+            }
+        } catch (NumberFormatException e) {
+            throw new IllegalArgumentException("Delay seconds must be a number, got: " + seconds);
         }
-        return TaskResult.success("Delay of " + seconds + "s completed", start);
+    }
+
+    @Override
+    protected String doExecute(TaskConfig config) throws InterruptedException {
+        int seconds = Integer.parseInt(config.getParameter("seconds", "1"));
+        System.out.println("    Waiting " + seconds + " seconds...");
+        Thread.sleep(seconds * 1000L);
+        return "Delay of " + seconds + "s completed";
     }
 }

@@ -1,27 +1,18 @@
 package com.flowforge.task;
 
 import com.flowforge.model.TaskConfig;
-import com.flowforge.model.TaskResult;
-
-import java.time.Instant;
 
 /**
- * Simulates an HTTP API call.
+ * HTTP task — refactored to use Template Method lifecycle.
  *
- * WHY: Extracted from the if(taskType.equals("http")) block in the
- * naive engine. Each task type is now its own class with focused logic.
+ * BEFORE (Commit 2-6): implemented execute() directly, no validation.
+ * NOW: extends AbstractTask, overrides validate() and doExecute().
+ * The lifecycle (validate → execute → cleanup) is guaranteed by AbstractTask.
  */
-public class HttpTask implements Task {
-
-    private final String name;
+public class HttpTask extends AbstractTask {
 
     public HttpTask(String name) {
-        this.name = name;
-    }
-
-    @Override
-    public String getName() {
-        return name;
+        super(name);
     }
 
     @Override
@@ -30,11 +21,16 @@ public class HttpTask implements Task {
     }
 
     @Override
-    public TaskResult execute(TaskConfig config) {
-        Instant start = Instant.now();
+    protected void validate(TaskConfig config) {
+        config.getRequiredParameter("url");
+        // method is optional, defaults to GET
+    }
+
+    @Override
+    protected String doExecute(TaskConfig config) {
         String url = config.getRequiredParameter("url");
         String method = config.getParameter("method", "GET");
-        System.out.println("  HTTP " + method + " " + url);
-        return TaskResult.success("HTTP Response 200 OK from " + url, start);
+        System.out.println("    HTTP " + method + " " + url);
+        return "HTTP " + method + " " + url + " → 200 OK";
     }
 }
