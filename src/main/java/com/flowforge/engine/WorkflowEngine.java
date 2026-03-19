@@ -8,27 +8,29 @@ import com.flowforge.exception.TaskExecutionException;
 import com.flowforge.exception.WorkflowNotFoundException;
 import com.flowforge.model.TaskResult;
 import com.flowforge.model.WorkflowDefinition;
-import com.flowforge.model.WorkflowStatus;
 import com.flowforge.pipeline.Pipeline;
 import com.flowforge.pipeline.PipelineContext;
 import com.flowforge.task.TaskFactory;
 
-import java.util.HashMap;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * ARCHITECTURAL PATTERNS:
- * - Pipes & Filters: data (PipelineContext) flows through handlers
- * - Chain of Responsibility: each handler decides to process or abort
- * - Event-Driven: events published for all lifecycle transitions
+ * Workflow execution engine.
+ *
+ * REFACTORING (Commit 14):
+ * - HashMap → ConcurrentHashMap for thread-safe workflow/strategy storage
+ * - workflow.setStatus() → workflow.markRunning()/markCompleted()/markFailed()
+ * - Removed direct System.out.println — pipeline logs now go through EventBus
+ * - All fields are final
  */
 public class WorkflowEngine {
 
-    private final Map<String, WorkflowDefinition> workflows = new HashMap<>();
-    private final Map<String, ExecutionStrategy> strategies = new HashMap<>();
+    private final Map<String, WorkflowDefinition> workflows = new ConcurrentHashMap<>();
+    private final Map<String, ExecutionStrategy> strategies = new ConcurrentHashMap<>();
     private final TaskFactory taskFactory;
     private final EventBus eventBus;
-    private Pipeline pipeline;
+    private volatile Pipeline pipeline;
 
     public WorkflowEngine(TaskFactory taskFactory, EventBus eventBus) {
         this.taskFactory = taskFactory;
@@ -36,10 +38,6 @@ public class WorkflowEngine {
         registerStrategy(new SequentialStrategy());
     }
 
-    /**
-     * Sets the pre-execution pipeline.
-     * If null, workflows execute directly without pre-processing.
-     */
     public void setPipeline(Pipeline pipeline) {
         this.pipeline = pipeline;
     }
@@ -64,20 +62,19 @@ public class WorkflowEngine {
             return;
         }
 
-        // --- Run through pipeline (Chain of Responsibility) ---
+        // --- Pipeline pre-processing ---
         PipelineContext pipelineResult = null;
         if (pipeline != null) {
             PipelineContext context = new PipelineContext(workflow);
             pipelineResult = pipeline.execute(context);
 
-            // Print pipeline processing log
+            // Publish pipeline logs as events instead of println
             for (String log : pipelineResult.getProcessingLog()) {
-                System.out.println("  [Pipeline] " + log);
+                eventBus.publish(WorkflowEvent.pipelineLog(workflow.getName(), workflow.getId(), log));
             }
 
-            // If pipeline aborted, do not execute
             if (pipelineResult.isAborted()) {
-                workflow.setStatus(WorkflowStatus.FAILED);
+                workflow.markFailed();
                 eventBus.publish(WorkflowEvent.workflowFailed(
                         workflow.getName(), workflow.getId(),
                         "Pipeline aborted: " + pipelineResult.getAbortReason()));
@@ -87,12 +84,11 @@ public class WorkflowEngine {
 
         // --- Execute with strategy ---
         ExecutionStrategy strategy = resolveStrategy(workflow.getExecutionStrategyName());
-        workflow.setStatus(WorkflowStatus.RUNNING);
+        workflow.markRunning();
         eventBus.publish(WorkflowEvent.workflowStarted(
                 workflow.getName(), workflow.getId(), strategy.getName()));
 
         try {
-            // Use pipeline-processed tasks if available, otherwise original
             var tasksToExecute = (pipelineResult != null)
                     ? pipelineResult.getProcessedTasks()
                     : workflow.getTasks();
@@ -108,12 +104,12 @@ public class WorkflowEngine {
                 }
             }
 
-            workflow.setStatus(WorkflowStatus.COMPLETED);
+            workflow.markCompleted();
             eventBus.publish(WorkflowEvent.workflowCompleted(
                     workflow.getName(), workflow.getId(), results.size()));
 
         } catch (TaskExecutionException e) {
-            workflow.setStatus(WorkflowStatus.FAILED);
+            workflow.markFailed();
             eventBus.publish(WorkflowEvent.workflowFailed(
                     workflow.getName(), workflow.getId(), e.getMessage()));
             throw e;

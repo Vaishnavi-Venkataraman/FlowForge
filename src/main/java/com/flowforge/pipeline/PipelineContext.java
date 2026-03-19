@@ -41,9 +41,18 @@ public class PipelineContext {
         attributes.put(key, value);
     }
 
-    @SuppressWarnings("unchecked")
+    /**
+     * Retrieves a typed attribute. Returns null if key absent or type mismatch.
+     */
     public <T> T getAttribute(String key, Class<T> type) {
-        return (T) attributes.get(key);
+        Object value = attributes.get(key);
+        if (value == null) {
+            return null;
+        }
+        if (!type.isInstance(value)) {
+            return null;
+        }
+        return type.cast(value);
     }
 
     public boolean hasAttribute(String key) {

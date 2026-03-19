@@ -1,13 +1,10 @@
 package com.flowforge.event;
 
-import java.util.ArrayList;
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CopyOnWriteArrayList;
 
-/**
- * Central event bus implementing the Publish-Subscribe architectural pattern.
- */
 public class EventBus {
 
     private final Map<WorkflowEvent.Type, List<EventListener>> typedListeners;
@@ -15,10 +12,10 @@ public class EventBus {
 
     public EventBus() {
         this.typedListeners = new EnumMap<>(WorkflowEvent.Type.class);
-        this.globalListeners = new ArrayList<>();
+        this.globalListeners = new CopyOnWriteArrayList<>();
 
         for (WorkflowEvent.Type type : WorkflowEvent.Type.values()) {
-            typedListeners.put(type, new ArrayList<>());
+            typedListeners.put(type, new CopyOnWriteArrayList<>());
         }
     }
 
@@ -30,7 +27,7 @@ public class EventBus {
     }
 
     /**
-     * Subscribe to ALL event types (wildcard).
+     * Subscribe to ALL event types.
      */
     public void subscribeAll(EventListener listener) {
         globalListeners.add(listener);
@@ -40,7 +37,6 @@ public class EventBus {
      * Publish an event to all matching subscribers.
      */
     public void publish(WorkflowEvent event) {
-        // Notify type-specific listeners
         List<EventListener> typed = typedListeners.get(event.getType());
         if (typed != null) {
             for (EventListener listener : typed) {
@@ -48,7 +44,6 @@ public class EventBus {
             }
         }
 
-        // Notify global listeners
         for (EventListener listener : globalListeners) {
             listener.onEvent(event);
         }

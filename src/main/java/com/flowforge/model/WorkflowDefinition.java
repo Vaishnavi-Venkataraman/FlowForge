@@ -6,6 +6,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 
+/* REFACTORING: Removed public setStatus() - state transitions are now guarded methods*/
 public class WorkflowDefinition {
 
     private final String id;
@@ -14,7 +15,7 @@ public class WorkflowDefinition {
     private final List<TaskConfig> tasks;
     private final Instant createdAt;
     private final String executionStrategyName;
-    private WorkflowStatus status;
+    private volatile WorkflowStatus status;  // volatile for thread visibility
 
     public WorkflowDefinition(String name, TriggerConfig trigger, List<TaskConfig> tasks) {
         this(name, trigger, tasks, "sequential");
@@ -38,37 +39,61 @@ public class WorkflowDefinition {
                 ? executionStrategyName : "sequential";
     }
 
-    public String getId() {
-        return id;
+    /**
+     * Transitions to RUNNING. Only valid from CREATED or PAUSED.
+     *
+     * @throws IllegalStateException if current state doesn't allow this transition
+     */
+    public void markRunning() {
+        if (!status.isExecutable()) {
+            throw new IllegalStateException(
+                    "Cannot start workflow '" + name + "' — current status: " + status);
+        }
+        this.status = WorkflowStatus.RUNNING;
     }
 
-    public String getName() {
-        return name;
+    /**
+     * Transitions to COMPLETED. Only valid from RUNNING.
+     */
+    public void markCompleted() {
+        if (status != WorkflowStatus.RUNNING) {
+            throw new IllegalStateException(
+                    "Cannot complete workflow '" + name + "' — current status: " + status);
+        }
+        this.status = WorkflowStatus.COMPLETED;
     }
 
-    public TriggerConfig getTrigger() {
-        return trigger;
+    /**
+     * Transitions to FAILED. Valid from RUNNING or CREATED (pipeline failure).
+     */
+    public void markFailed() {
+        if (status != WorkflowStatus.RUNNING && status != WorkflowStatus.CREATED) {
+            throw new IllegalStateException(
+                    "Cannot fail workflow '" + name + "' — current status: " + status);
+        }
+        this.status = WorkflowStatus.FAILED;
     }
 
-    public List<TaskConfig> getTasks() {
-        return tasks;
+    /**
+     * Resets to CREATED for re-execution. Only from terminal states.
+     */
+    public void reset() {
+        if (!status.isTerminal()) {
+            throw new IllegalStateException(
+                    "Cannot reset workflow '" + name + "' — current status: " + status);
+        }
+        this.status = WorkflowStatus.CREATED;
     }
 
-    public Instant getCreatedAt() {
-        return createdAt;
-    }
+    // --- Getters (no setStatus!) ---
 
-    public WorkflowStatus getStatus() {
-        return status;
-    }
-
-    public void setStatus(WorkflowStatus status) {
-        this.status = status;
-    }
-
-    public String getExecutionStrategyName() {
-        return executionStrategyName;
-    }
+    public String getId() { return id; }
+    public String getName() { return name; }
+    public TriggerConfig getTrigger() { return trigger; }
+    public List<TaskConfig> getTasks() { return tasks; }
+    public Instant getCreatedAt() { return createdAt; }
+    public WorkflowStatus getStatus() { return status; }
+    public String getExecutionStrategyName() { return executionStrategyName; }
 
     @Override
     public String toString() {

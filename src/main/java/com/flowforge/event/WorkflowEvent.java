@@ -5,15 +5,9 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
-/**
- * Represents a domain event in the FlowForge system.
- * This implements the Observer/Pub-Sub architectural pattern.
- */
+
 public class WorkflowEvent {
 
-    /**
-     * Event types that the system emits.
-     */
     public enum Type {
         WORKFLOW_REGISTERED,
         WORKFLOW_STARTED,
@@ -22,7 +16,8 @@ public class WorkflowEvent {
         TASK_STARTED,
         TASK_COMPLETED,
         TASK_FAILED,
-        TASK_SKIPPED
+        TASK_SKIPPED,
+        PIPELINE_LOG
     }
 
     private final Type type;
@@ -95,6 +90,11 @@ public class WorkflowEvent {
     public static WorkflowEvent taskSkipped(String workflowName, String workflowId, String taskName) {
         return new WorkflowEvent(Type.TASK_SKIPPED, workflowName, workflowId, taskName,
                 "Task skipped: " + taskName, null);
+    }
+
+    public static WorkflowEvent pipelineLog(String workflowName, String workflowId, String message) {
+        return new WorkflowEvent(Type.PIPELINE_LOG, workflowName, workflowId, null,
+                message, null);
     }
 
     // --- Getters ---
