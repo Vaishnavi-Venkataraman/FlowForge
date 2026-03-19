@@ -6,16 +6,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 
-/**
- * Domain model representing a workflow definition.
- *
- * WHY: Replaces the HashMap<String, Object> that represented a workflow
- * in the naive implementation. This is a proper domain object with:
- * - Typed fields instead of string keys
- * - Unique ID generation
- * - Immutable task list (defensive copy)
- * - Status tracking with enum
- */
 public class WorkflowDefinition {
 
     private final String id;
@@ -23,9 +13,15 @@ public class WorkflowDefinition {
     private final TriggerConfig trigger;
     private final List<TaskConfig> tasks;
     private final Instant createdAt;
+    private final String executionStrategyName;
     private WorkflowStatus status;
 
     public WorkflowDefinition(String name, TriggerConfig trigger, List<TaskConfig> tasks) {
+        this(name, trigger, tasks, "sequential");
+    }
+
+    public WorkflowDefinition(String name, TriggerConfig trigger, List<TaskConfig> tasks,
+                               String executionStrategyName) {
         if (name == null || name.isBlank()) {
             throw new IllegalArgumentException("Workflow name cannot be null or blank");
         }
@@ -38,6 +34,8 @@ public class WorkflowDefinition {
         this.tasks = Collections.unmodifiableList(new ArrayList<>(tasks));
         this.createdAt = Instant.now();
         this.status = WorkflowStatus.CREATED;
+        this.executionStrategyName = executionStrategyName != null
+                ? executionStrategyName : "sequential";
     }
 
     public String getId() {
@@ -68,9 +66,14 @@ public class WorkflowDefinition {
         this.status = status;
     }
 
+    public String getExecutionStrategyName() {
+        return executionStrategyName;
+    }
+
     @Override
     public String toString() {
         return "WorkflowDefinition{id='" + id + "', name='" + name
+                + "', strategy='" + executionStrategyName
                 + "', status=" + status + ", tasks=" + tasks.size() + "}";
     }
 }

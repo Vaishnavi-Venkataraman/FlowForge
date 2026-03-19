@@ -1,12 +1,12 @@
 package com.flowforge.engine;
 
+import com.flowforge.engine.strategy.ExecutionStrategy;
+import com.flowforge.engine.strategy.SequentialStrategy;
 import com.flowforge.exception.TaskExecutionException;
 import com.flowforge.exception.WorkflowNotFoundException;
-import com.flowforge.model.TaskConfig;
 import com.flowforge.model.TaskResult;
 import com.flowforge.model.WorkflowDefinition;
 import com.flowforge.model.WorkflowStatus;
-import com.flowforge.task.Task;
 import com.flowforge.task.TaskFactory;
 
 import java.util.ArrayList;
@@ -14,22 +14,33 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+
 public class WorkflowEngine {
 
     private final Map<String, WorkflowDefinition> workflows = new HashMap<>();
+    private final Map<String, ExecutionStrategy> strategies = new HashMap<>();
     private final List<String> logs = new ArrayList<>();
     private final TaskFactory taskFactory;
 
-    /**
-     * Engine now receives its TaskFactory — a step toward dependency injection.
-     */
     public WorkflowEngine(TaskFactory taskFactory) {
         this.taskFactory = taskFactory;
+        // Register default strategy
+        registerStrategy(new SequentialStrategy());
+    }
+
+    /**
+     * Registers an execution strategy by name.
+     * This is the extension point for new execution models.
+     */
+    public void registerStrategy(ExecutionStrategy strategy) {
+        strategies.put(strategy.getName(), strategy);
+        log("Registered execution strategy: " + strategy.getName());
     }
 
     public String registerWorkflow(WorkflowDefinition workflow) {
         workflows.put(workflow.getId(), workflow);
-        log("Registered workflow: " + workflow.getName() + " [" + workflow.getId() + "]");
+        log("Registered workflow: " + workflow.getName()
+                + " [strategy=" + workflow.getExecutionStrategyName() + "]");
         return workflow.getId();
     }
 
@@ -40,31 +51,27 @@ public class WorkflowEngine {
         }
 
         if (!workflow.getStatus().isExecutable()) {
-            log("Workflow " + workflow.getName() + " not executable (status: " + workflow.getStatus() + ")");
+            log("Workflow " + workflow.getName() + " not executable (status: "
+                    + workflow.getStatus() + ")");
             return;
         }
 
+        // Resolve the strategy for this workflow
+        ExecutionStrategy strategy = resolveStrategy(workflow.getExecutionStrategyName());
+
         workflow.setStatus(WorkflowStatus.RUNNING);
-        log("Started workflow: " + workflow.getName());
+        log("Started workflow: " + workflow.getName() + " using strategy: " + strategy.getName());
         System.out.println("NOTIFICATION: Workflow " + workflow.getName() + " started");
 
         try {
-            for (TaskConfig taskConfig : workflow.getTasks()) {
-                // Factory creates the task — engine doesn't know concrete types
-                Task task = taskFactory.createTask(taskConfig);
-                log("Executing task: " + task.getName() + " [" + task.getType() + "]");
-
-                TaskResult result = task.execute(taskConfig);
-
-                if (!result.isSuccess()) {
-                    throw new TaskExecutionException(task.getName(), result.getErrorMessage());
-                }
-
-                log("  Task completed: " + result);
-            }
+            // DELEGATE execution to the strategy — engine doesn't loop over tasks anymore
+            Map<String, TaskResult> results = strategy.execute(
+                    workflow.getTasks(), taskFactory
+            );
 
             workflow.setStatus(WorkflowStatus.COMPLETED);
-            log("Workflow completed: " + workflow.getName());
+            log("Workflow completed: " + workflow.getName()
+                    + " (" + results.size() + " tasks executed)");
             System.out.println("NOTIFICATION: Workflow " + workflow.getName() + " completed");
 
         } catch (TaskExecutionException e) {
@@ -76,8 +83,26 @@ public class WorkflowEngine {
     }
 
     /**
-     * Provides access to the factory so callers can register custom task types.
+     * Resolves a strategy by name. Falls back to sequential if not found.
      */
+    private ExecutionStrategy resolveStrategy(String name) {
+        // Try exact match first
+        ExecutionStrategy strategy = strategies.get(name);
+        if (strategy != null) {
+            return strategy;
+        }
+
+        // For strategies with parameters like "conditional(...)", check prefix
+        for (Map.Entry<String, ExecutionStrategy> entry : strategies.entrySet()) {
+            if (entry.getKey().startsWith(name)) {
+                return entry.getValue();
+            }
+        }
+
+        log("Strategy '" + name + "' not found, falling back to sequential");
+        return strategies.getOrDefault("sequential", new SequentialStrategy());
+    }
+
     public TaskFactory getTaskFactory() {
         return taskFactory;
     }
