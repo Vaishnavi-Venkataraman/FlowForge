@@ -1,81 +1,67 @@
 package com.flowforge;
-
-import com.flowforge.engine.WorkflowBuilder;
-import com.flowforge.model.WorkflowDefinition;
-import com.flowforge.plugin.builtin.FileOperationsPlugin;
-
-import java.util.Map;
+import com.flowforge.web.UserStore;
+import com.flowforge.web.WebServer;
+import com.flowforge.web.WorkflowStore;
+import com.flowforge.web.handler.AuthHandler;
+import com.flowforge.web.handler.StaticFileHandler;
+import com.flowforge.web.handler.WorkflowApiHandler;
 
 public class Main {
-        public static void main(String[] args) {
 
-        // One line to get the entire platform — Singleton + Facade
+    private static final int PORT = 8080;
+
+    public static void main(String[] args) throws Exception {
+        System.out.println("========== FlowForge Web UI ==========");
+        System.out.println();
+
+        // Core engine (Facade + Singleton)
         FlowForgeFacade flowforge = FlowForgeFacade.getInstance();
 
-        System.out.println("========== Setup ==========\n");
-
+        // Register external services for demo
         flowforge
                 .addRestService("crm-api", "CRM REST API", "https://api.crm.com")
                 .addSoapService("erp-legacy", "ERP SOAP", "https://erp.legacy.com/ws?wsdl")
-                .addCloudStorage("data-lake", "Data Lake", "us-east-1", "acct-123")
-                .installPlugin(new FileOperationsPlugin())
+                .addCloudStorage("data-lake", "Data Lake", "us-east-1", "acct-123");
+
+        // Install plugins
+        flowforge
+                .installPlugin(new com.flowforge.plugin.builtin.FileOperationsPlugin())
                 .startPlugins();
 
-        // WORKFLOW 1: Sequential ETL (REST adapter)
-        WorkflowDefinition etl = WorkflowBuilder.create()
-                .name("ETL Pipeline")
-                .cronTrigger("0 2 * * *")
-                .addTask("Fetch from CRM", "external_service", Map.of(
-                        "serviceId", "crm-api", "operation", "GET", "path", "/customers"))
-                .addTransformTask("Normalize", "raw", "normalize")
-                .addDatabaseTask("Load", "INSERT INTO warehouse VALUES('${timestamp}')")
-                .sequential()
-                .build();
-        String etlId = flowforge.registerWorkflow(etl);
+        // Web layer
+        UserStore userStore = new UserStore();
+        WorkflowStore workflowStore = new WorkflowStore();
 
-        // WORKFLOW 2: Parallel notifications (SOAP + Cloud Storage)
-        WorkflowDefinition notify = WorkflowBuilder.create()
-                .name("Order Notifications")
-                .webhookTrigger("/api/orders/new")
-                .addEmailTask("Email Customer", "customer@shop.com", "Order Confirmed!")
-                .addTask("Update ERP", "external_service", Map.of(
-                        "serviceId", "erp-legacy", "operation", "CreateOrder",
-                        "orderId", "ORD-999", "amount", "150.00"))
-                .addTask("Archive to Lake", "external_service", Map.of(
-                        "serviceId", "data-lake", "operation", "UPLOAD",
-                        "bucket", "orders", "key", "latest.json", "content", "order-data"))
-                .parallel()
-                .build();
-        flowforge.registerWorkflow(notify);
+        WebServer server = new WebServer(PORT);
+        server.registerHandler("/api/auth/", new AuthHandler(userStore));
+        server.registerHandler("/api/workflows", new WorkflowApiHandler(userStore, workflowStore, flowforge));
+        server.registerHandler("/", new StaticFileHandler());
 
-        // WORKFLOW 3: Conditional + plugin task types
-        WorkflowDefinition fileJob = WorkflowBuilder.create()
-                .name("File Export")
-                .manualTrigger()
-                .addDatabaseTask("Export CSV", "COPY sales TO '/tmp/sales.csv'")
-                .addDelayTask("Wait", 2)
-                .addTask("FTP Upload", "ftp", Map.of("host", "ftp.partner.com", "file", "sales.csv"))
-                .strategy("conditional(skip-delays)")
-                .build();
-        String fileId = flowforge.registerWorkflow(fileJob);
+        server.start();
 
-        System.out.println("\n========== Execute via Triggers ==========\n");
-
-        System.out.println("--- Cron trigger → ETL ---\n");
-        flowforge.fireTrigger(etlId);
-
-        System.out.println("\n--- Webhook → Order Notifications ---\n");
-        flowforge.simulateWebhook("/api/orders/new");
-
-        System.out.println("\n--- Manual trigger → File Export ---\n");
-        flowforge.fireTrigger(fileId);
-
-        System.out.println("\n========== Dashboards ==========\n");
-        flowforge.healthCheck();
         System.out.println();
-        flowforge.printDashboards();
+        System.out.println("  ┌─────────────────────────────────────────┐");
+        System.out.println("  │  FlowForge is running!                  │");
+        System.out.println("  │  Open: http://localhost:" + PORT + "             │");
+        System.out.println("  │  Press Ctrl+C to stop                   │");
+        System.out.println("  └─────────────────────────────────────────┘");
+        System.out.println();
 
-        System.out.println("\n========== Shutdown ==========\n");
-        flowforge.shutdown();
+        // Try to open browser automatically
+        try {
+            String os = System.getProperty("os.name").toLowerCase();
+            if (os.contains("win")) {
+                Runtime.getRuntime().exec("cmd /c start http://localhost:" + PORT);
+            } else if (os.contains("mac")) {
+                Runtime.getRuntime().exec("open http://localhost:" + PORT);
+            } else {
+                Runtime.getRuntime().exec("xdg-open http://localhost:" + PORT);
+            }
+        } catch (Exception e) {
+            // Browser auto-open failed — user can open manually
+        }
+
+        // Keep running until Ctrl+C
+        Thread.currentThread().join();
     }
 }
