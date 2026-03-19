@@ -1,13 +1,13 @@
 package com.flowforge;
+
 import com.flowforge.engine.WorkflowBuilder;
 import com.flowforge.model.WorkflowDefinition;
 import com.flowforge.plugin.builtin.FileOperationsPlugin;
-import com.flowforge.plugin.builtin.SlackNotificationPlugin;
+
 import java.util.Map;
 
 public class Main {
-
-    public static void main(String[] args) {
+        public static void main(String[] args) {
 
         // One line to get the entire platform — Singleton + Facade
         FlowForgeFacade flowforge = FlowForgeFacade.getInstance();
@@ -19,9 +19,9 @@ public class Main {
                 .addSoapService("erp-legacy", "ERP SOAP", "https://erp.legacy.com/ws?wsdl")
                 .addCloudStorage("data-lake", "Data Lake", "us-east-1", "acct-123")
                 .installPlugin(new FileOperationsPlugin())
-                .installPlugin(new SlackNotificationPlugin("https://hooks.slack.com/XXX", "#ops"))
                 .startPlugins();
 
+        // WORKFLOW 1: Sequential ETL (REST adapter)
         WorkflowDefinition etl = WorkflowBuilder.create()
                 .name("ETL Pipeline")
                 .cronTrigger("0 2 * * *")
