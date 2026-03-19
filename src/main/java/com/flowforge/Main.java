@@ -1,64 +1,71 @@
 package com.flowforge;
 
-import java.util.ArrayList;
-import java.util.HashMap;
+import com.flowforge.engine.WorkflowEngine;
+import com.flowforge.exception.TaskExecutionException;
+import com.flowforge.model.TaskConfig;
+import com.flowforge.model.TriggerConfig;
+import com.flowforge.model.TriggerType;
+import com.flowforge.model.WorkflowDefinition;
 
+import java.util.List;
+import java.util.Map;
+
+/**
+ * Entry point — demonstrates the refactored engine with domain models.
+ *
+ * Compare with Commit 1: no more raw HashMaps, typed configs, proper exceptions.
+ */
 public class Main {
 
     public static void main(String[] args) {
-        WorkflowEngine engine = WorkflowEngine.getInstance();
+        WorkflowEngine engine = new WorkflowEngine();
 
-        // Problem: building tasks with raw HashMaps — no type safety, easy to mistype keys
-        ArrayList<HashMap<String, Object>> tasks = new ArrayList<>();
+        // --- Workflow 1: Daily User Report (succeeds) ---
+        TaskConfig fetchUsers = new TaskConfig("Fetch User Data", "http", Map.of(
+                "url", "https://api.example.com/users",
+                "method", "GET"
+        ));
+        TaskConfig filterActive = new TaskConfig("Filter Active Users", "transform", Map.of(
+                "input", "user_data",
+                "operation", "filter_active"
+        ));
+        TaskConfig sendReport = new TaskConfig("Send Report", "email", Map.of(
+                "to", "admin@company.com",
+                "subject", "Daily Active Users Report"
+        ));
 
-        HashMap<String, Object> task1 = new HashMap<>();
-        task1.put("type", "http");
-        task1.put("name", "Fetch User Data");
-        task1.put("url", "https://api.example.com/users");
-        task1.put("method", "GET");
-        tasks.add(task1);
-
-        HashMap<String, Object> task2 = new HashMap<>();
-        task2.put("type", "transform");
-        task2.put("name", "Filter Active Users");
-        task2.put("input", "user_data");
-        task2.put("operation", "filter_active");
-        tasks.add(task2);
-
-        HashMap<String, Object> task3 = new HashMap<>();
-        task3.put("type", "email");
-        task3.put("name", "Send Report");
-        task3.put("to", "admin@company.com");
-        task3.put("subject", "Daily Active Users Report");
-        tasks.add(task3);
-
-        String workflowId = engine.createWorkflow(
+        WorkflowDefinition dailyReport = new WorkflowDefinition(
                 "Daily User Report",
-                "cron",
-                "0 9 * * *",
-                tasks
+                new TriggerConfig(TriggerType.CRON, "0 9 * * *"),
+                List.of(fetchUsers, filterActive, sendReport)
         );
 
-        System.out.println("\n--- Executing Workflow ---\n");
-        engine.executeWorkflow(workflowId);
+        String wfId1 = engine.registerWorkflow(dailyReport);
 
-        // Second workflow that fails (unknown task type)
-        ArrayList<HashMap<String, Object>> tasks2 = new ArrayList<>();
-        HashMap<String, Object> badTask = new HashMap<>();
-        badTask.put("type", "ftp");
-        badTask.put("name", "Upload to FTP");
-        tasks2.add(badTask);
+        System.out.println("\n--- Executing Workflow 1 ---\n");
+        engine.executeWorkflow(wfId1);
 
-        String wfId2 = engine.createWorkflow(
+        // --- Workflow 2: Unknown task type (fails with proper exception) ---
+        TaskConfig badTask = new TaskConfig("Upload to FTP", "ftp", Map.of(
+                "host", "ftp.example.com"
+        ));
+
+        WorkflowDefinition ftpUpload = new WorkflowDefinition(
                 "FTP Upload",
-                "webhook",
-                "/api/trigger/upload",
-                tasks2
+                new TriggerConfig(TriggerType.WEBHOOK, "/api/trigger/upload"),
+                List.of(badTask)
         );
 
-        System.out.println("\n--- Executing Failing Workflow ---\n");
-        engine.executeWorkflow(wfId2);
+        String wfId2 = engine.registerWorkflow(ftpUpload);
 
+        System.out.println("\n--- Executing Workflow 2 (will fail) ---\n");
+        try {
+            engine.executeWorkflow(wfId2);
+        } catch (TaskExecutionException e) {
+            System.out.println("Caught expected exception: " + e.getMessage());
+        }
+
+        // --- Stats and Logs ---
         System.out.println("\n--- Statistics ---\n");
         engine.printStats();
 
