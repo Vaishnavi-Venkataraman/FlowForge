@@ -18,123 +18,104 @@ Requires: Java 21+, Maven 3.8+
 
 ---
 
-## Project Evolution (Git Commit History)
-
-Each commit introduces specific improvements with clear justifications.
+## Project Evolution
 
 ### Commit 1 — Naive Monolithic Implementation
 **State**: Single God class `WorkflowEngine` with everything.
 **Problems**: HashMap data, if-else chains, inline logging, magic strings, no patterns.
 
 ### Commit 2 — Domain Models + Interfaces (SRP, OCP foundation)
-**Patterns**: None yet — foundational extraction.
-**Changes**:
-- `WorkflowDefinition`, `TaskConfig`, `TaskResult` replace HashMaps
-- `WorkflowStatus`, `TaskStatus`, `TriggerType` enums replace magic strings
-- `Task` interface replaces if-else chain
-- Exception hierarchy (`FlowForgeException`, `WorkflowNotFoundException`, `TaskExecutionException`)
+**Changes**: `WorkflowDefinition`, `TaskConfig`, `TaskResult`, `Task` interface,
+enums (`WorkflowStatus`, `TaskStatus`, `TriggerType`), exception hierarchy.
 **Why**: Type safety, compile-time checks, meaningful domain language.
 
 ### Commit 3 — Command + Factory Patterns (Task System)
 **Patterns**: Command, Factory Method + Registry.
-**Changes**:
-- `TaskFactory` with `registerTaskType()` replaces engine's switch statement
-- Engine depends only on `TaskFactory`, not concrete task classes
-- Custom task types registered at runtime (e.g., FTP task)
-**Why**: Open/Closed Principle — new task types without modifying engine.
+**Changes**: `TaskFactory` with `registerTaskType()` replaces engine's switch statement.
+**Why**: OCP — new task types without modifying engine.
 
 ### Commit 4 — Strategy Pattern (Execution Engine)
 **Patterns**: Strategy.
-**Changes**:
-- `ExecutionStrategy` interface with `execute(tasks, factory)`
-- `SequentialStrategy` — fail-fast linear execution
-- `ParallelStrategy` — concurrent via thread pool + CountDownLatch
-- `ConditionalStrategy` — predicate-based task filtering
-- `WorkflowDefinition` declares preferred strategy by name
-**Why**: Different workflows need different execution semantics. ETL = sequential,
-notifications = parallel. Strategy makes execution model pluggable.
+**Changes**: `ExecutionStrategy` interface → `SequentialStrategy`, `ParallelStrategy`, `ConditionalStrategy`.
+**Why**: Different workflows need different execution semantics.
 
 ### Commit 5 — Observer Pattern + Pub-Sub Event System
 **Patterns**: Observer. **Architecture**: Pub-Sub / Event-Driven.
-**Changes**:
-- `EventBus` with typed and wildcard subscription
-- `WorkflowEvent` domain events with factory methods
-- `LoggingListener` — replaces inline `log()` calls
-- `NotificationListener` — replaces inline `NOTIFICATION:` prints
-- `MetricsListener` — replaces `printStats()` with reactive counters
-- Engine has ZERO `System.out.println` — only publishes events
-**Why**: Cross-cutting concerns (logging, alerting, metrics) don't belong in
-orchestration logic. Pub-Sub decouples publishers from consumers.
+**Changes**: `EventBus`, `WorkflowEvent`, `LoggingListener`, `NotificationListener`, `MetricsListener`.
+**Why**: Decouple cross-cutting concerns from orchestration logic.
 
 ### Commit 6 — Builder Pattern (Workflow Construction)
 **Patterns**: Builder (fluent API).
-**Changes**:
-- `WorkflowBuilder` with fluent chainable methods
-- Convenience methods: `addHttpGet()`, `addEmailTask()`, `cronTrigger()`, etc.
-- Validation at `build()` time with aggregated error messages
-**Why**: WorkflowDefinition construction was verbose and error-prone
-(nested constructors, positional params, inline `Map.of()` calls).
-Builder provides readable, self-documenting construction.
+**Changes**: `WorkflowBuilder` with fluent chainable methods and build-time validation.
+**Why**: Readable, self-documenting workflow construction.
+
+### Commit 7 — Template Method + Decorator Patterns
+**Patterns**: Template Method, Decorator.
+**Changes**: `AbstractTask` (validate→doExecute→cleanup lifecycle),
+`RetryDecorator`, `LoggingDecorator`, `TimeoutDecorator`.
+**Why Template Method**: All tasks share lifecycle; eliminates duplication.
+**Why Decorator**: Add retry/logging/timeout without modifying task classes.
+
+### Commit 8 — Chain of Responsibility + Pipes & Filters
+**Patterns**: Chain of Responsibility. **Architecture**: Pipes & Filters.
+**Changes**: `Pipeline`, `PipelineHandler`, `PipelineContext`,
+`ValidationHandler`, `TransformHandler`, `AuthorizationHandler`, `RateLimitHandler`.
+**Why**: Pre-execution concerns (validation, auth, rate limit, enrichment)
+are independent handlers — not crammed into the engine.
 
 ---
 
 ## Architecture
 
-### What We Implement
-
 ```
-┌─────────────────────────────────────────────────────┐
-│                    FlowForge Core                    │
-├──────────┬──────────┬──────────┬────────────────────┤
-│  Engine  │  Event   │  Task    │  Pipeline          │
-│  Layer   │  System  │  System  │  Processing        │
-│          │          │          │                    │
-│ Strategy │ EventBus │ Factory  │ Chain of           │
-│ Pattern  │ Pub-Sub  │ Command  │ Responsibility     │
-├──────────┴──────────┴──────────┴────────────────────┤
-│              Plugin System (Microkernel)             │
-├─────────────────────────────────────────────────────┤
-│              Domain Models & Events                  │
-└─────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│                     FlowForge Core                          │
+├──────────┬───────────┬──────────┬──────────┬───────────────┤
+│ Pipeline │  Engine   │  Event   │  Task    │   Plugin      │
+│ (CoR)    │  Layer    │  System  │  System  │   System      │
+│          │           │          │          │               │
+│ Validate │ Strategy  │ EventBus │ Factory  │  Microkernel  │
+│ Auth     │ Seq/Par   │ Pub-Sub  │ Command  │  (Commit 9)   │
+│ RateLimit│ Cond.     │ Observer │ Template │               │
+│ Transform│           │          │ Decorator│               │
+├──────────┴───────────┴──────────┴──────────┴───────────────┤
+│                   Domain Models & Events                    │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-### What About Microservices?
+### Modular Monolith → Future Microservices
 
-This project implements a **modular monolith** — the code is structured
-with the same separation of concerns that microservices would have:
+This project implements a **modular monolith** structured so each package
+could become an independent microservice:
 
-| Package | Would Become Microservice |
-|---------|--------------------------|
-| `engine` | Execution Service |
-| `event` | Event Bus / Message Broker |
-| `task` | Task Worker Service |
-| `trigger` | Trigger/Scheduler Service |
-| `plugin` | Plugin Registry Service |
+| Package | Would Become | Communication |
+|---------|-------------|---------------|
+| `engine` | Execution Service | EventBus → Message Broker |
+| `event` | Event Bus Service | Kafka / RabbitMQ |
+| `task` | Task Worker Service | Queue-based |
+| `pipeline` | Gateway / Middleware | API Gateway filters |
+| `plugin` | Plugin Registry Service | Service mesh |
 
-We don't implement actual microservices (Docker, REST APIs, service
-discovery) because that's an infrastructure concern, not a design
-patterns concern. The modular architecture we build IS the foundation
-that enables microservice extraction later — which is the correct
-approach (monolith-first, extract when needed).
+### Design Patterns
 
-### Architectural Patterns Implemented
+| Category | Pattern | Class(es) | Why |
+|----------|---------|-----------|-----|
+| Creational | Factory Method | `TaskFactory` | Decouple task creation |
+| Creational | Builder | `WorkflowBuilder` | Readable construction |
+| Behavioral | Command | `Task` interface | Encapsulate execution |
+| Behavioral | Strategy | `ExecutionStrategy` | Pluggable execution |
+| Behavioral | Observer | `EventListener`, `EventBus` | Reactive events |
+| Behavioral | Template Method | `AbstractTask` | Standardize lifecycle |
+| Behavioral | Chain of Responsibility | `PipelineHandler`, `Pipeline` | Flexible pre-processing |
+| Structural | Decorator | `RetryDecorator`, `LoggingDecorator`, `TimeoutDecorator` | Dynamic enhancement |
+
+### Architectural Patterns
 
 | Pattern | Where | Why |
 |---------|-------|-----|
-| **Pub-Sub / Event-Driven** | `EventBus` + listeners | Decouple cross-cutting concerns |
-| **Pipes & Filters** | Pipeline (Commit 8) | Modular data processing |
-| **Microkernel** | Plugin system (Commit 9) | Extensible platform |
-| **Modular Monolith** | Package structure | Clean separation, future extraction |
-
-### Design Patterns Implemented
-
-| Category | Pattern | Where | Why |
-|----------|---------|-------|-----|
-| Creational | **Factory Method** | `TaskFactory` | Decouple task creation from engine |
-| Creational | **Builder** | `WorkflowBuilder` | Readable complex object construction |
-| Behavioral | **Command** | `Task` interface | Encapsulate execution as objects |
-| Behavioral | **Strategy** | `ExecutionStrategy` | Pluggable execution algorithms |
-| Behavioral | **Observer** | `EventListener` + `EventBus` | Reactive event handling |
+| Pub-Sub / Event-Driven | `EventBus` + listeners | Decouple concerns |
+| Pipes & Filters | `Pipeline` + handlers | Modular pre-processing |
+| Modular Monolith | Package structure | Clean separation |
 
 ---
 
@@ -142,40 +123,54 @@ approach (monolith-first, extract when needed).
 
 ```
 com.flowforge/
-├── Main.java                          # Entry point & demo
+├── Main.java
 ├── engine/
-│   ├── WorkflowEngine.java           # Core orchestrator
-│   ├── WorkflowBuilder.java          # Builder pattern
+│   ├── WorkflowEngine.java
+│   ├── WorkflowBuilder.java
 │   └── strategy/
-│       ├── ExecutionStrategy.java     # Strategy interface
-│       ├── SequentialStrategy.java    # Sequential execution
-│       ├── ParallelStrategy.java      # Parallel execution
-│       └── ConditionalStrategy.java   # Conditional execution
+│       ├── ExecutionStrategy.java
+│       ├── SequentialStrategy.java
+│       ├── ParallelStrategy.java
+│       └── ConditionalStrategy.java
 ├── event/
-│   ├── WorkflowEvent.java            # Domain event
-│   ├── EventListener.java            # Observer interface
-│   ├── EventBus.java                 # Pub-Sub backbone
-│   ├── LoggingListener.java          # Log subscriber
-│   ├── NotificationListener.java     # Alert subscriber
-│   └── MetricsListener.java          # Metrics subscriber
+│   ├── WorkflowEvent.java
+│   ├── EventListener.java
+│   ├── EventBus.java
+│   ├── LoggingListener.java
+│   ├── NotificationListener.java
+│   └── MetricsListener.java
 ├── model/
-│   ├── WorkflowDefinition.java       # Workflow domain model
-│   ├── WorkflowStatus.java           # Workflow lifecycle enum
-│   ├── TaskConfig.java               # Task configuration
-│   ├── TaskResult.java               # Task execution result
-│   ├── TaskStatus.java               # Task lifecycle enum
-│   ├── TriggerConfig.java            # Trigger configuration
-│   └── TriggerType.java              # Trigger type enum
+│   ├── WorkflowDefinition.java
+│   ├── WorkflowStatus.java
+│   ├── TaskConfig.java
+│   ├── TaskResult.java
+│   ├── TaskStatus.java
+│   ├── TriggerConfig.java
+│   └── TriggerType.java
+├── pipeline/
+│   ├── Pipeline.java
+│   ├── PipelineContext.java
+│   ├── PipelineHandler.java
+│   ├── ValidationHandler.java
+│   ├── TransformHandler.java
+│   ├── AuthorizationHandler.java
+│   └── RateLimitHandler.java
 ├── task/
-│   ├── Task.java                     # Command interface
-│   ├── TaskFactory.java              # Factory + Registry
-│   ├── HttpTask.java                 # HTTP task
-│   ├── EmailTask.java                # Email task
-│   ├── TransformTask.java            # Transform task
-│   ├── DatabaseTask.java             # Database task
-│   └── DelayTask.java                # Delay task
+│   ├── Task.java
+│   ├── AbstractTask.java
+│   ├── TaskFactory.java
+│   ├── HttpTask.java
+│   ├── EmailTask.java
+│   ├── TransformTask.java
+│   ├── DatabaseTask.java
+│   ├── DelayTask.java
+│   └── decorator/
+│       ├── TaskDecorator.java
+│       ├── RetryDecorator.java
+│       ├── LoggingDecorator.java
+│       └── TimeoutDecorator.java
 └── exception/
-    ├── FlowForgeException.java        # Base exception
-    ├── WorkflowNotFoundException.java # Lookup failure
-    └── TaskExecutionException.java    # Execution failure
+    ├── FlowForgeException.java
+    ├── WorkflowNotFoundException.java
+    └── TaskExecutionException.java
 ```
