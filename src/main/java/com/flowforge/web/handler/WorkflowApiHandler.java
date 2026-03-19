@@ -40,6 +40,41 @@ public class WorkflowApiHandler implements HttpHandler {
         this.flowforge = flowforge;
     }
 
+    /**
+     * Re-registers all persisted workflows with the engine on startup.
+     * Called once after construction so the engine knows about previously saved workflows.
+     */
+    public void reloadPersistedWorkflows() {
+        int count = 0;
+        // Iterate all users' workflows and re-register with engine
+        for (var owner : workflowStore.getAllOwners()) {
+            for (var stored : workflowStore.getWorkflows(owner)) {
+                try {
+                    WorkflowBuilder builder = WorkflowBuilder.create().name(stored.name());
+                    switch (stored.triggerType().toUpperCase()) {
+                        case "CRON" -> builder.cronTrigger(stored.triggerValue());
+                        case "WEBHOOK" -> builder.webhookTrigger(stored.triggerValue());
+                        case "EVENT" -> builder.eventTrigger(stored.triggerValue());
+                        case "FILE_WATCH" -> builder.fileWatchTrigger(stored.triggerValue());
+                        default -> builder.manualTrigger();
+                    }
+                    for (var t : stored.tasks()) {
+                        builder.addTask(t.name(), t.type(), t.params());
+                    }
+                    builder.strategy(stored.strategy());
+                    WorkflowDefinition wfDef = builder.build();
+                    flowforge.registerWorkflowWithId(stored.id(), wfDef);
+                    count++;
+                } catch (Exception e) {
+                    System.err.println("[Reload] Failed to reload workflow " + stored.name() + ": " + e.getMessage());
+                }
+            }
+        }
+        if (count > 0) {
+            System.out.println("[WorkflowApiHandler] Reloaded " + count + " workflows from disk");
+        }
+    }
+
     @Override
     public void handle(HttpExchange exchange) throws IOException {
         if ("OPTIONS".equals(exchange.getRequestMethod())) {

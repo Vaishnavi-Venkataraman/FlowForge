@@ -34,9 +34,11 @@ public class Main {
 
         WebServer server = new WebServer(PORT);
         server.registerHandler("/api/auth/", new AuthHandler(userStore));
-        server.registerHandler("/api/workflows", new WorkflowApiHandler(userStore, workflowStore, flowforge));
+        WorkflowApiHandler workflowHandler = new WorkflowApiHandler(userStore, workflowStore, flowforge);
+        workflowHandler.reloadPersistedWorkflows();
+        server.registerHandler("/api/workflows", workflowHandler);
         server.registerHandler("/", new StaticFileHandler());
-
+        
         server.start();
 
         System.out.println();

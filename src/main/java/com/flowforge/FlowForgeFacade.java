@@ -114,6 +114,14 @@ public class FlowForgeFacade {
         return id;
     }
 
+    public void registerWorkflowWithId(String existingId, WorkflowDefinition workflow) {
+        engine.registerWorkflow(workflow); // registers with workflow's own UUID
+        if (workflow.getTrigger() != null) {
+            triggerService.registerTrigger(existingId, workflow.getName(),
+                    workflow.getTriggerTypeName(), workflow.getTriggerValue());
+        }
+    }
+
     /**
      * Execute a workflow directly by ID.
      */
