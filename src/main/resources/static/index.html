@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FlowForge — Workflow Automation</title>
+<style>
+:root {
+  --bg: #ffffff; --bg-secondary: #f5f7fa; --bg-card: #ffffff;
+  --text: #1a1a2e; --text-secondary: #6b7280; --text-muted: #9ca3af;
+  --primary: #2563eb; --primary-hover: #1d4ed8; --primary-light: #dbeafe;
+  --border: #e5e7eb; --border-focus: #2563eb;
+  --success: #059669; --success-bg: #d1fae5;
+  --error: #dc2626; --error-bg: #fee2e2;
+  --warning: #d97706; --warning-bg: #fef3c7;
+  --shadow: 0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06);
+  --shadow-lg: 0 4px 12px rgba(0,0,0,0.1);
+  --radius: 8px;
+}
+[data-theme="dark"] {
+  --bg: #0f172a; --bg-secondary: #1e293b; --bg-card: #1e293b;
+  --text: #f1f5f9; --text-secondary: #94a3b8; --text-muted: #64748b;
+  --primary: #3b82f6; --primary-hover: #2563eb; --primary-light: #1e3a5f;
+  --border: #334155; --border-focus: #3b82f6;
+  --success: #10b981; --success-bg: #064e3b;
+  --error: #ef4444; --error-bg: #450a0a;
+  --warning: #f59e0b; --warning-bg: #451a03;
+  --shadow: 0 1px 3px rgba(0,0,0,0.3);
+  --shadow-lg: 0 4px 12px rgba(0,0,0,0.4);
+}
+* { margin:0; padding:0; box-sizing:border-box; }
+body { font-family: 'Segoe UI', -apple-system, sans-serif; background:var(--bg); color:var(--text); min-height:100vh; transition: background 0.3s, color 0.3s; }
+a { color:var(--primary); text-decoration:none; }
+button { cursor:pointer; font-family:inherit; }
+input, select, textarea { font-family:inherit; font-size:14px; }
+
+/* --- Layout --- */
+.app { display:flex; flex-direction:column; min-height:100vh; }
+.navbar { display:flex; align-items:center; justify-content:space-between; padding:12px 24px; background:var(--bg-card); border-bottom:1px solid var(--border); box-shadow:var(--shadow); position:sticky; top:0; z-index:100; }
+.navbar-brand { font-size:20px; font-weight:700; color:var(--primary); display:flex; align-items:center; gap:8px; }
+.navbar-brand svg { width:24px; height:24px; }
+.navbar-actions { display:flex; align-items:center; gap:12px; }
+.main { flex:1; max-width:1100px; width:100%; margin:0 auto; padding:24px; }
+
+/* --- Buttons --- */
+.btn { display:inline-flex; align-items:center; gap:6px; padding:8px 16px; border-radius:var(--radius); font-size:14px; font-weight:500; border:1px solid transparent; transition:all 0.15s; }
+.btn-primary { background:var(--primary); color:#fff; border-color:var(--primary); }
+.btn-primary:hover { background:var(--primary-hover); }
+.btn-secondary { background:var(--bg-secondary); color:var(--text); border-color:var(--border); }
+.btn-secondary:hover { background:var(--border); }
+.btn-danger { background:var(--error); color:#fff; }
+.btn-danger:hover { opacity:0.9; }
+.btn-sm { padding:5px 10px; font-size:12px; }
+.btn-icon { background:none; border:none; color:var(--text-secondary); padding:6px; border-radius:50%; }
+.btn-icon:hover { background:var(--bg-secondary); color:var(--text); }
+
+/* --- Cards --- */
+.card { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow); }
+.card-header { padding:16px 20px; border-bottom:1px solid var(--border); display:flex; align-items:center; justify-content:space-between; }
+.card-body { padding:20px; }
+
+/* --- Forms --- */
+.form-group { margin-bottom:16px; }
+.form-group label { display:block; margin-bottom:4px; font-size:13px; font-weight:600; color:var(--text-secondary); text-transform:uppercase; letter-spacing:0.5px; }
+.form-control { width:100%; padding:9px 12px; border:1px solid var(--border); border-radius:var(--radius); background:var(--bg); color:var(--text); transition:border-color 0.15s; }
+.form-control:focus { outline:none; border-color:var(--border-focus); box-shadow:0 0 0 3px var(--primary-light); }
+select.form-control { appearance:auto; }
+.form-row { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+
+/* --- Auth Page --- */
+.auth-container { display:flex; align-items:center; justify-content:center; min-height:100vh; background:var(--bg-secondary); }
+.auth-card { width:400px; }
+.auth-card .card-body { padding:32px; }
+.auth-card h1 { font-size:24px; margin-bottom:4px; }
+.auth-card p { color:var(--text-secondary); margin-bottom:24px; font-size:14px; }
+.auth-tabs { display:flex; border-bottom:2px solid var(--border); margin-bottom:24px; }
+.auth-tab { flex:1; padding:10px; text-align:center; font-weight:600; font-size:14px; color:var(--text-secondary); cursor:pointer; border-bottom:2px solid transparent; margin-bottom:-2px; transition:all 0.15s; }
+.auth-tab.active { color:var(--primary); border-bottom-color:var(--primary); }
+.auth-error { background:var(--error-bg); color:var(--error); padding:8px 12px; border-radius:var(--radius); font-size:13px; margin-bottom:16px; display:none; }
+
+/* --- Dashboard --- */
+.dashboard-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; }
+.dashboard-header h1 { font-size:24px; }
+.stats-row { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:24px; }
+.stat-card { padding:16px; text-align:center; }
+.stat-card .stat-value { font-size:28px; font-weight:700; color:var(--primary); }
+.stat-card .stat-label { font-size:12px; color:var(--text-secondary); margin-top:2px; text-transform:uppercase; letter-spacing:0.5px; }
+
+/* --- Workflow List --- */
+.wf-list { display:flex; flex-direction:column; gap:8px; }
+.wf-item { display:grid; grid-template-columns:1fr auto auto auto auto; align-items:center; gap:16px; padding:14px 20px; border-bottom:1px solid var(--border); transition:background 0.1s; }
+.wf-item:hover { background:var(--bg-secondary); }
+.wf-item:last-child { border-bottom:none; }
+.wf-name { font-weight:600; font-size:15px; }
+.wf-meta { font-size:12px; color:var(--text-secondary); }
+.badge { display:inline-block; padding:3px 8px; border-radius:12px; font-size:11px; font-weight:600; text-transform:uppercase; }
+.badge-success { background:var(--success-bg); color:var(--success); }
+.badge-error { background:var(--error-bg); color:var(--error); }
+.badge-warning { background:var(--warning-bg); color:var(--warning); }
+.badge-default { background:var(--bg-secondary); color:var(--text-secondary); }
+
+/* --- Workflow Detail --- */
+.detail-header { display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:20px; }
+.detail-header h1 { font-size:22px; }
+.detail-info { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-bottom:20px; }
+.detail-info .info-item label { font-size:11px; text-transform:uppercase; color:var(--text-muted); letter-spacing:0.5px; }
+.detail-info .info-item p { font-size:14px; font-weight:500; margin-top:2px; }
+
+/* --- Tasks --- */
+.task-list { display:flex; flex-direction:column; gap:8px; }
+.task-item { display:flex; align-items:center; gap:12px; padding:10px 14px; background:var(--bg-secondary); border-radius:var(--radius); border:1px solid var(--border); }
+.task-num { width:24px; height:24px; border-radius:50%; background:var(--primary); color:#fff; display:flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; flex-shrink:0; }
+.task-item .task-name { font-weight:600; font-size:14px; }
+.task-item .task-type { font-size:12px; color:var(--text-secondary); }
+.task-arrow { color:var(--text-muted); text-align:center; font-size:18px; }
+
+/* --- Execution Logs --- */
+.exec-item { border:1px solid var(--border); border-radius:var(--radius); margin-bottom:10px; overflow:hidden; }
+.exec-header { display:flex; justify-content:space-between; align-items:center; padding:10px 14px; background:var(--bg-secondary); cursor:pointer; }
+.exec-header:hover { background:var(--border); }
+.exec-logs { padding:12px 16px; background:var(--bg); font-family:'Cascadia Code','Fira Code',monospace; font-size:12px; line-height:1.7; max-height:300px; overflow-y:auto; white-space:pre-wrap; word-break:break-all; border-top:1px solid var(--border); display:none; }
+.exec-logs.open { display:block; }
+.log-line { padding:1px 0; }
+.log-line.log-error { color:var(--error); font-weight:600; }
+.log-line.log-success { color:var(--success); }
+.log-line.log-warn { color:var(--warning); }
+.log-line.log-info { color:var(--primary); }
+
+/* --- Modal --- */
+.modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.4); display:none; align-items:center; justify-content:center; z-index:200; }
+.modal-overlay.open { display:flex; }
+.modal { width:600px; max-height:80vh; overflow-y:auto; }
+.modal-header { display:flex; justify-content:space-between; align-items:center; padding:16px 20px; border-bottom:1px solid var(--border); }
+.modal-header h2 { font-size:18px; }
+.modal-body { padding:20px; }
+.modal-footer { padding:12px 20px; border-top:1px solid var(--border); display:flex; justify-content:flex-end; gap:8px; }
+
+/* --- Task Builder --- */
+.task-builder-item { padding:12px; background:var(--bg-secondary); border-radius:var(--radius); border:1px solid var(--border); margin-bottom:8px; position:relative; }
+.task-builder-item .remove-task { position:absolute; top:8px; right:8px; }
+.task-params { margin-top:8px; }
+.param-row { display:flex; gap:8px; margin-bottom:4px; }
+.param-row input { flex:1; padding:6px 8px; font-size:12px; }
+
+/* --- Theme Toggle --- */
+.theme-toggle { width:36px; height:36px; border-radius:50%; display:flex; align-items:center; justify-content:center; }
+.theme-toggle svg { width:18px; height:18px; }
+
+/* --- Empty State --- */
+.empty-state { text-align:center; padding:48px 20px; color:var(--text-secondary); }
+.empty-state svg { width:48px; height:48px; margin-bottom:12px; opacity:0.4; }
+.empty-state h3 { margin-bottom:8px; color:var(--text); }
+
+/* --- Loading --- */
+.spinner { display:inline-block; width:16px; height:16px; border:2px solid var(--border); border-top-color:var(--primary); border-radius:50%; animation:spin 0.6s linear infinite; }
+@keyframes spin { to { transform:rotate(360deg); } }
+
+/* --- Responsive --- */
+@media(max-width:768px) {
+  .stats-row { grid-template-columns:repeat(2,1fr); }
+  .wf-item { grid-template-columns:1fr auto; }
+  .form-row { grid-template-columns:1fr; }
+  .detail-info { grid-template-columns:1fr; }
+}
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<script>
+
+// FlowForge SPA — Single Page Application
+const API = '';
+let currentUser = null;
+let sessionId = localStorage.getItem('ff_session');
+let currentTheme = localStorage.getItem('ff_theme') || 'light';
+
+document.documentElement.setAttribute('data-theme', currentTheme);
+
+// --- API Helpers ---
+async function api(method, path, body) {
+  const opts = { method, headers: {'Content-Type':'application/json'} };
+  if (sessionId) opts.headers['Authorization'] = 'Bearer ' + sessionId;
+  if (body) opts.body = JSON.stringify(body);
+  const res = await fetch(API + path, opts);
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Request failed');
+  return data;
+}
+
+// --- Router ---
+function navigate(page, params = {}) {
+  window._params = params;
+  render(page);
+}
+
+// --- Theme ---
+function toggleTheme() {
+  currentTheme = currentTheme === 'light' ? 'dark' : 'light';
+  document.documentElement.setAttribute('data-theme', currentTheme);
+  localStorage.setItem('ff_theme', currentTheme);
+  const btn = document.querySelector('.theme-toggle');
+  if (btn) btn.innerHTML = currentTheme === 'dark' ? sunIcon : moonIcon;
+}
+
+const moonIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1111.21 3a7 7 0 009.79 9.79z"/></svg>';
+const sunIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>';
+const logoIcon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>';
+
+// --- Render ---
+function render(page) {
+  const app = document.getElementById('app');
+  if (!currentUser && page !== 'auth') { renderAuth(); return; }
+  switch(page) {
+    case 'auth': renderAuth(); break;
+    case 'dashboard': renderDashboard(); break;
+    case 'detail': renderDetail(window._params.id); break;
+    case 'create': renderCreate(); break;
+    default: renderDashboard();
+  }
+}
+
+// AUTH PAGE
+function renderAuth() {
+  const app = document.getElementById('app');
+  app.innerHTML = `
+  <div class="auth-container">
+    <div class="card auth-card">
+      <div class="card-body">
+        <div style="text-align:center;margin-bottom:20px">
+          <div style="display:inline-flex;align-items:center;gap:8px;color:var(--primary)">
+            ${logoIcon}
+            <span style="font-size:24px;font-weight:700">FlowForge</span>
+          </div>
+          <p style="margin-top:8px">Workflow automation, simplified.</p>
+        </div>
+        <div class="auth-tabs">
+          <div class="auth-tab active" onclick="switchAuthTab('login')">Sign In</div>
+          <div class="auth-tab" onclick="switchAuthTab('signup')">Sign Up</div>
+        </div>
+        <div class="auth-error" id="authError"></div>
+        <div id="authForm"></div>
+      </div>
+    </div>
+  </div>`;
+  switchAuthTab('login');
+}
+
+function switchAuthTab(tab) {
+  document.querySelectorAll('.auth-tab').forEach((t,i) => {
+    t.classList.toggle('active', (tab==='login'?i===0:i===1));
+  });
+  const form = document.getElementById('authForm');
+  document.getElementById('authError').style.display = 'none';
+
+  if (tab === 'login') {
+    form.innerHTML = `
+      <div class="form-group"><label>Username</label><input class="form-control" id="loginUser" placeholder="Enter username"></div>
+      <div class="form-group"><label>Password</label><input class="form-control" id="loginPass" type="password" placeholder="Enter password"></div>
+      <button class="btn btn-primary" style="width:100%;justify-content:center;padding:10px" onclick="doLogin()">Sign In</button>`;
+  } else {
+    form.innerHTML = `
+      <div class="form-group"><label>Display Name</label><input class="form-control" id="signupName" placeholder="Your name"></div>
+      <div class="form-group"><label>Username</label><input class="form-control" id="signupUser" placeholder="Choose a username"></div>
+      <div class="form-group"><label>Password</label><input class="form-control" id="signupPass" type="password" placeholder="Min 4 characters"></div>
+      <button class="btn btn-primary" style="width:100%;justify-content:center;padding:10px" onclick="doSignup()">Create Account</button>`;
+  }
+}
+
+async function doLogin() {
+  try {
+    const data = await api('POST', '/api/auth/login', {
+      username: document.getElementById('loginUser').value,
+      password: document.getElementById('loginPass').value
+    });
+    sessionId = data.sessionId;
+    localStorage.setItem('ff_session', sessionId);
+    currentUser = { username: data.username, displayName: data.displayName };
+    navigate('dashboard');
+  } catch(e) { showAuthError(e.message); }
+}
+
+async function doSignup() {
+  try {
+    const data = await api('POST', '/api/auth/signup', {
+      username: document.getElementById('signupUser').value,
+      password: document.getElementById('signupPass').value,
+      displayName: document.getElementById('signupName').value
+    });
+    sessionId = data.sessionId;
+    localStorage.setItem('ff_session', sessionId);
+    currentUser = { username: data.username, displayName: data.username };
+    navigate('dashboard');
+  } catch(e) { showAuthError(e.message); }
+}
+
+function showAuthError(msg) {
+  const el = document.getElementById('authError');
+  el.textContent = msg; el.style.display = 'block';
+}
+
+function doLogout() {
+  api('POST', '/api/auth/logout').catch(()=>{});
+  sessionId = null; currentUser = null;
+  localStorage.removeItem('ff_session');
+  navigate('auth');
+}
+
+// DASHBOARD
+async function renderDashboard() {
+  const app = document.getElementById('app');
+  app.innerHTML = `<div class="app">
+    ${navbar()}
+    <div class="main">
+      <div class="dashboard-header">
+        <h1>My Workflows</h1>
+        <button class="btn btn-primary" onclick="navigate('create')">+ New Workflow</button>
+      </div>
+      <div class="stats-row" id="stats"></div>
+      <div class="card">
+        <div class="card-header"><span style="font-weight:600">All Workflows</span></div>
+        <div id="wfList" style="padding:0"><div style="padding:20px;text-align:center"><div class="spinner"></div></div></div>
+      </div>
+    </div>
+  </div>`;
+  try {
+    const workflows = await api('GET', '/api/workflows');
+    renderWorkflowList(workflows);
+    renderStats(workflows);
+  } catch(e) {
+    if (e.message.includes('Not authenticated')) { currentUser=null; navigate('auth'); }
+    else { document.getElementById('wfList').innerHTML = '<div style="padding:20px;color:var(--error)">'+e.message+'</div>'; }
+  }
+}
+
+function renderStats(workflows) {
+  const total = workflows.length;
+  const completed = workflows.filter(w=>w.lastStatus==='COMPLETED').length;
+  const failed = workflows.filter(w=>w.lastStatus==='FAILED').length;
+  const totalExecs = workflows.reduce((s,w)=>s+w.executionCount,0);
+  document.getElementById('stats').innerHTML = `
+    <div class="card stat-card"><div class="stat-value">${total}</div><div class="stat-label">Workflows</div></div>
+    <div class="card stat-card"><div class="stat-value">${totalExecs}</div><div class="stat-label">Executions</div></div>
+    <div class="card stat-card"><div class="stat-value" style="color:var(--success)">${completed}</div><div class="stat-label">Succeeded</div></div>
+    <div class="card stat-card"><div class="stat-value" style="color:var(--error)">${failed}</div><div class="stat-label">Failed</div></div>`;
+}
+
+function renderWorkflowList(workflows) {
+  const el = document.getElementById('wfList');
+  if (workflows.length === 0) {
+    el.innerHTML = `<div class="empty-state">
+      ${logoIcon}
+      <h3>No workflows yet</h3>
+      <p>Create your first workflow to get started</p>
+    </div>`;
+    return;
+  }
+  el.innerHTML = workflows.map(w => `
+    <div class="wf-item" style="cursor:pointer" onclick="navigate('detail',{id:'${w.id}'})">
+      <div>
+        <div class="wf-name">${esc(w.name)}</div>
+        <div class="wf-meta">${w.taskCount} tasks · ${w.strategy} · ${w.triggerType}</div>
+      </div>
+      <span class="badge ${statusBadge(w.lastStatus)}">${w.lastStatus}</span>
+      <span style="font-size:12px;color:var(--text-secondary)">${w.executionCount} runs</span>
+      <button class="btn btn-sm btn-primary" onclick="event.stopPropagation();quickRun('${w.id}','${esc(w.name)}')">▶ Run</button>
+      <button class="btn btn-sm btn-danger" onclick="event.stopPropagation();deleteWf('${w.id}')">✕</button>
+    </div>`).join('');
+}
+
+async function quickRun(id, name) {
+  if (!confirm('Run workflow "'+name+'"?')) return;
+  try { await api('POST', '/api/workflows/'+id+'/run'); navigate('detail',{id}); }
+  catch(e) { alert('Execution error: '+e.message); navigate('detail',{id}); }
+}
+
+async function deleteWf(id) {
+  if (!confirm('Delete this workflow?')) return;
+  try { await api('DELETE', '/api/workflows/'+id); navigate('dashboard'); }
+  catch(e) { alert(e.message); }
+}
+
+// WORKFLOW DETAIL
+async function renderDetail(id) {
+  const app = document.getElementById('app');
+  app.innerHTML = `<div class="app">${navbar()}<div class="main"><div class="spinner"></div></div></div>`;
+
+  try {
+    const wf = await api('GET', '/api/workflows/'+id);
+    const main = document.querySelector('.main');
+    main.innerHTML = `
+      <div class="detail-header">
+        <div>
+          <a href="#" onclick="navigate('dashboard');return false" style="font-size:13px;color:var(--text-secondary)">← Back to workflows</a>
+          <h1 style="margin-top:4px">${esc(wf.name)}</h1>
+        </div>
+        <button class="btn btn-primary" onclick="runFromDetail('${wf.id}')">▶ Run Now</button>
+      </div>
+      <div class="detail-info">
+        <div class="info-item"><label>Trigger</label><p>${wf.triggerType} ${wf.triggerValue?'('+esc(wf.triggerValue)+')':''}</p></div>
+        <div class="info-item"><label>Strategy</label><p>${wf.strategy}</p></div>
+        <div class="info-item"><label>Status</label><p><span class="badge ${statusBadge(wf.lastStatus)}">${wf.lastStatus}</span></p></div>
+      </div>
+      <div class="card" style="margin-bottom:20px">
+        <div class="card-header"><span style="font-weight:600">Tasks (${wf.tasks.length})</span></div>
+        <div class="card-body">
+          <div class="task-list">
+            ${wf.tasks.map((t,i) => `
+              ${i>0?'<div class="task-arrow">↓</div>':''}
+              <div class="task-item">
+                <div class="task-num">${i+1}</div>
+                <div><div class="task-name">${esc(t.name)}</div><div class="task-type">${t.type}${Object.keys(t.params||{}).length?' · '+Object.entries(t.params||{}).map(([k,v])=>k+'='+v).join(', '):''}</div></div>
+              </div>`).join('')}
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header"><span style="font-weight:600">Execution History (${wf.executions.length})</span></div>
+        <div class="card-body" id="execList">
+          ${wf.executions.length===0?'<div class="empty-state"><h3>No executions yet</h3><p>Click "Run Now" to execute this workflow</p></div>':''}
+          ${wf.executions.slice().reverse().map((ex,i) => `
+            <div class="exec-item">
+              <div class="exec-header" onclick="this.nextElementSibling.classList.toggle('open')">
+                <div>
+                  <span class="badge ${statusBadge(ex.status)}">${ex.status}</span>
+                  <span style="margin-left:8px;font-size:13px;color:var(--text-secondary)">#${ex.executionId} · ${new Date(ex.startedAt).toLocaleString()} · ${ex.durationMs}ms</span>
+                </div>
+                <span style="font-size:12px;color:var(--text-muted)">${ex.logCount} log lines ▾</span>
+              </div>
+              <div class="exec-logs">${formatLogs(ex.logs)}</div>
+            </div>`).join('')}
+        </div>
+      </div>`;
+  } catch(e) {
+    document.querySelector('.main').innerHTML = '<div style="color:var(--error);padding:20px">'+e.message+'</div>';
+  }
+}
+
+async function runFromDetail(id) {
+  try {
+    await api('POST', '/api/workflows/'+id+'/run');
+  } catch(e) { /* errors shown in execution history */ }
+  renderDetail(id);
+}
+
+// CREATE WORKFLOW
+let newTasks = [];
+
+function renderCreate() {
+  newTasks = [{ name:'', type:'http', params:{} }];
+  const app = document.getElementById('app');
+  app.innerHTML = `<div class="app">${navbar()}<div class="main">
+    <a href="#" onclick="navigate('dashboard');return false" style="font-size:13px;color:var(--text-secondary)">← Back</a>
+    <h1 style="margin:8px 0 20px">Create Workflow</h1>
+    <div class="card"><div class="card-body">
+      <div class="form-group"><label>Workflow Name</label><input class="form-control" id="wfName" placeholder="e.g., Daily CRM Sync"></div>
+      <div class="form-row">
+        <div class="form-group"><label>Trigger Type</label>
+          <select class="form-control" id="wfTrigger" onchange="toggleTriggerValue()">
+            <option value="MANUAL">Manual</option><option value="CRON">Cron Schedule</option>
+            <option value="WEBHOOK">Webhook</option><option value="EVENT">Event</option>
+          </select>
+        </div>
+        <div class="form-group" id="triggerValueGroup" style="display:none"><label>Trigger Value</label><input class="form-control" id="wfTriggerVal" placeholder="e.g., 0 9 * * *"></div>
+      </div>
+      <div class="form-group"><label>Execution Strategy</label>
+        <select class="form-control" id="wfStrategy">
+          <option value="sequential">Sequential</option><option value="parallel">Parallel</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Tasks</label><div id="taskBuilder"></div>
+        <button class="btn btn-secondary btn-sm" style="margin-top:8px" onclick="addTaskRow()">+ Add Task</button>
+      </div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-secondary" onclick="navigate('dashboard')">Cancel</button><button class="btn btn-primary" onclick="submitWorkflow()">Create Workflow</button></div>
+    </div>
+  </div></div>`;
+  renderTaskBuilder();
+}
+
+function toggleTriggerValue() {
+  const v = document.getElementById('wfTrigger').value;
+  document.getElementById('triggerValueGroup').style.display = v==='MANUAL'?'none':'block';
+}
+
+function renderTaskBuilder() {
+  const el = document.getElementById('taskBuilder');
+  el.innerHTML = newTasks.map((t,i) => `
+    <div class="task-builder-item">
+      ${newTasks.length>1?'<button class="btn btn-icon btn-sm remove-task" onclick="removeTask('+i+')">✕</button>':''}
+      <div class="form-row">
+        <div class="form-group" style="margin-bottom:8px"><label>Task Name</label><input class="form-control" value="${esc(t.name)}" onchange="newTasks[${i}].name=this.value" placeholder="e.g., Fetch Users"></div>
+        <div class="form-group" style="margin-bottom:8px"><label>Task Type</label>
+          <select class="form-control" onchange="newTasks[${i}].type=this.value;renderTaskBuilder()">
+            <option ${t.type==='http'?'selected':''}>http</option>
+            <option ${t.type==='email'?'selected':''}>email</option>
+            <option ${t.type==='transform'?'selected':''}>transform</option>
+            <option ${t.type==='database'?'selected':''}>database</option>
+            <option ${t.type==='delay'?'selected':''}>delay</option>
+            <option ${t.type==='ftp'?'selected':''}>ftp</option>
+            <option ${t.type==='external_service'?'selected':''}>external_service</option>
+          </select>
+        </div>
+      </div>
+      <div class="task-params">${taskParamFields(t.type, i)}</div>
+    </div>`).join('');
+}
+
+function taskParamFields(type, idx) {
+  const fields = {
+    http: [['url','URL','https://api.example.com/data'],['method','Method','GET']],
+    email: [['to','To','user@example.com'],['subject','Subject','Report Ready']],
+    transform: [['input','Input','raw_data'],['operation','Operation','normalize']],
+    database: [['query','Query','SELECT * FROM users']],
+    delay: [['seconds','Seconds','1']],
+    ftp: [['host','Host','ftp.example.com'],['file','File','data.csv']],
+    external_service: [['serviceId','Service ID','crm-api'],['operation','Operation','GET'],['path','Path','/data']],
+  };
+  return (fields[type]||[]).map(([key,label,ph]) => `
+    <div class="param-row">
+      <input class="form-control" placeholder="${label}" value="${esc(newTasks[idx].params[key]||'')}" onchange="newTasks[${idx}].params['${key}']=this.value" style="font-size:12px">
+    </div>`).join('');
+}
+
+function addTaskRow() { newTasks.push({name:'',type:'http',params:{}}); renderTaskBuilder(); }
+function removeTask(i) { newTasks.splice(i,1); renderTaskBuilder(); }
+
+async function submitWorkflow() {
+  const name = document.getElementById('wfName').value;
+  const triggerType = document.getElementById('wfTrigger').value;
+  const triggerValue = document.getElementById('wfTriggerVal')?.value || '';
+  const strategy = document.getElementById('wfStrategy').value;
+
+  if (!name.trim()) { alert('Workflow name is required'); return; }
+  const validTasks = newTasks.filter(t=>t.name.trim());
+  if (validTasks.length===0) { alert('Add at least one task with a name'); return; }
+
+  try {
+    await api('POST', '/api/workflows', { name, triggerType, triggerValue, strategy, tasks: validTasks });
+    navigate('dashboard');
+  } catch(e) { alert('Error: '+e.message); }
+}
+
+// HELPERS
+function navbar() {
+  return `<div class="navbar">
+    <div class="navbar-brand" style="cursor:pointer" onclick="navigate('dashboard')">${logoIcon} FlowForge</div>
+    <div class="navbar-actions">
+      <span style="font-size:13px;color:var(--text-secondary)">Hi, ${esc(currentUser?.displayName||'')}</span>
+      <button class="btn-icon theme-toggle" onclick="toggleTheme()">${currentTheme==='dark'?sunIcon:moonIcon}</button>
+      <button class="btn btn-secondary btn-sm" onclick="doLogout()">Sign Out</button>
+    </div>
+  </div>`;
+}
+
+function statusBadge(s) {
+  if (s==='COMPLETED') return 'badge-success';
+  if (s==='FAILED') return 'badge-error';
+  if (s==='RUNNING') return 'badge-warning';
+  return 'badge-default';
+}
+
+function formatLogs(logStr) {
+  if (!logStr) return '<span style="color:var(--text-muted)">No logs</span>';
+  return logStr.split('\n').map(line => {
+    let cls = '';
+    if (line.includes('ERROR') || line.includes('FAIL') || line.includes('ALERT')) cls = 'log-error';
+    else if (line.includes('SUCCESS') || line.includes('COMPLETED') || line.includes('completed')) cls = 'log-success';
+    else if (line.includes('WARN') || line.includes('NOTIFY')) cls = 'log-warn';
+    else if (line.includes('LOG:') || line.includes('[Pipeline]')) cls = 'log-info';
+    return '<div class="log-line '+cls+'">'+esc(line)+'</div>';
+  }).join('');
+}
+
+function esc(s) { if(!s)return''; const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+
+// INIT
+(async function init() {
+  if (sessionId) {
+    try {
+      const me = await api('GET', '/api/auth/me');
+      currentUser = me;
+      navigate('dashboard');
+    } catch(e) {
+      sessionId = null; localStorage.removeItem('ff_session');
+      navigate('auth');
+    }
+  } else {
+    navigate('auth');
+  }
+})();
+</script>
+</body>
+</html>
