@@ -10,29 +10,18 @@ import com.flowforge.event.NotificationListener;
 import com.flowforge.exception.TaskExecutionException;
 import com.flowforge.model.WorkflowDefinition;
 import com.flowforge.task.TaskFactory;
+import com.flowforge.task.decorator.LoggingDecorator;
+import com.flowforge.task.decorator.RetryDecorator;
 
 /**
- * Entry point — demonstrates Builder pattern for readable workflow construction.
+ * Entry point — demonstrates:
  *
- * COMPARE (Commit 5 — verbose):
- *   new WorkflowDefinition(
- *       "ETL Pipeline",
- *       new TriggerConfig(TriggerType.CRON, "0 2 * * *"),
- *       List.of(
- *           new TaskConfig("Extract", "http", Map.of("url","...","method","GET")),
- *           new TaskConfig("Transform", "transform", Map.of("input","...","operation","..."))
- *       ),
- *       "sequential"
- *   );
+ * 1. TEMPLATE METHOD: All tasks now follow validate() → doExecute() → cleanup()
+ *    lifecycle via AbstractTask. DatabaseTask shows cleanup() hook in action.
  *
- * WITH BUILDER (Commit 6 — readable):
- *   WorkflowBuilder.create()
- *       .name("ETL Pipeline")
- *       .cronTrigger("0 2 * * *")
- *       .addHttpGet("Extract", "https://...")
- *       .addTransformTask("Transform", "raw", "normalize")
- *       .sequential()
- *       .build();
+ * 2. DECORATOR: Tasks wrapped with LoggingDecorator and RetryDecorator
+ *    without modifying any task class.
+ *    Composition: LoggingDecorator(RetryDecorator(actualTask))
  */
 public class Main {
 
@@ -45,74 +34,74 @@ public class Main {
         eventBus.subscribeAll(new NotificationListener());
         eventBus.subscribeAll(metrics);
 
-        // --- Create engine ---
+        // --- Create factory with global decorators ---
         TaskFactory factory = new TaskFactory();
+
+        // DECORATOR DEMO: wrap ALL tasks with logging + retry
+        // Composition order: LoggingDecorator → RetryDecorator → actual task
+        // So logging captures the full retry sequence
+        factory.setGlobalDecorator(task ->
+                new LoggingDecorator(new RetryDecorator(task, 2, 100))
+        );
+
+        // --- Create engine ---
         WorkflowEngine engine = new WorkflowEngine(factory, eventBus);
         engine.registerStrategy(new ParallelStrategy());
 
         // ============================================================
-        // WORKFLOW 1: ETL Pipeline (Sequential) — built with builder
+        // WORKFLOW 1: ETL with Template Method lifecycle
+        // Notice: DatabaseTask shows cleanup() hook (connection returned to pool)
         // ============================================================
         WorkflowDefinition etl = WorkflowBuilder.create()
-                .name("ETL Pipeline")
+                .name("ETL Pipeline (Template Method Demo)")
                 .cronTrigger("0 2 * * *")
                 .addHttpGet("Extract from API", "https://api.source.com/data")
                 .addTransformTask("Normalize Data", "raw_data", "normalize")
-                .addTransformTask("Validate Schema", "normalized", "validate")
                 .addDatabaseTask("Load to Warehouse", "INSERT INTO warehouse SELECT * FROM staging")
                 .sequential()
                 .build();
 
-        System.out.println("\n========== WORKFLOW 1: Sequential ETL ==========\n");
+        System.out.println("\n========== WORKFLOW 1: Template Method Lifecycle ==========\n");
         engine.registerWorkflow(etl);
         engine.executeWorkflow(etl.getId());
 
         // ============================================================
-        // WORKFLOW 2: Multi-channel notification (Parallel)
+        // WORKFLOW 2: Parallel with decorators
+        // All tasks get LoggingDecorator + RetryDecorator automatically
         // ============================================================
         WorkflowDefinition notify = WorkflowBuilder.create()
-                .name("Order Confirmation")
+                .name("Parallel Notifications (Decorator Demo)")
                 .eventTrigger("order.completed")
-                .addEmailTask("Email Customer", "customer@shop.com", "Your order is confirmed!")
-                .addHttpPost("Update CRM", "https://crm.api/customers/update")
+                .addEmailTask("Email Customer", "customer@shop.com", "Order Confirmed!")
+                .addHttpPost("Update CRM", "https://crm.api/update")
                 .addDatabaseTask("Audit Log", "INSERT INTO audit(event) VALUES('order_confirm')")
-                .addHttpPost("Notify Warehouse", "https://warehouse.api/fulfill")
                 .parallel()
                 .build();
 
-        System.out.println("\n========== WORKFLOW 2: Parallel Notifications ==========\n");
+        System.out.println("\n========== WORKFLOW 2: Decorated Parallel Execution ==========\n");
         engine.registerWorkflow(notify);
         engine.executeWorkflow(notify.getId());
 
         // ============================================================
-        // WORKFLOW 3: Data Processing with delay
+        // WORKFLOW 3: Validation failure demo (Template Method validate())
+        // The http task requires 'url' parameter — missing here triggers validation
         // ============================================================
-        WorkflowDefinition dataProc = WorkflowBuilder.create()
-                .name("Hourly Data Sync")
-                .cronTrigger("0 * * * *")
-                .addHttpGet("Fetch Updates", "https://api.partner.com/changes")
-                .addTransformTask("Merge Changes", "updates", "merge")
-                .addDatabaseTask("Apply to DB", "CALL sp_apply_changes()")
-                .addEmailTask("Report Done", "ops@company.com", "Hourly sync complete")
+        WorkflowDefinition badValidation = WorkflowBuilder.create()
+                .name("Validation Failure Demo")
+                .manualTrigger()
+                .addTask("Missing URL Task", "http", java.util.Map.of(
+                        "method", "GET"
+                        // "url" is missing! validate() will catch this
+                ))
                 .sequential()
                 .build();
 
-        System.out.println("\n========== WORKFLOW 3: Hourly Data Sync ==========\n");
-        engine.registerWorkflow(dataProc);
-        engine.executeWorkflow(dataProc.getId());
-
-        // ============================================================
-        // WORKFLOW 4: Builder validation — missing fields
-        // ============================================================
-        System.out.println("\n========== WORKFLOW 4: Builder Validation Demo ==========\n");
+        System.out.println("\n========== WORKFLOW 3: Validation Failure ==========\n");
+        engine.registerWorkflow(badValidation);
         try {
-            WorkflowBuilder.create()
-                    .name("Invalid Workflow")
-                    // No trigger defined
-                    // No tasks defined
-                    .build();
-        } catch (IllegalStateException e) {
-            System.out.println("Builder validation caught:\n" + e.getMessage());
+            engine.executeWorkflow(badValidation.getId());
+        } catch (TaskExecutionException e) {
+            System.out.println("(Caught: " + e.getMessage() + ")");
         }
 
         // ============================================================
