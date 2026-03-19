@@ -7,11 +7,16 @@ import com.flowforge.event.EventBus;
 import com.flowforge.event.LoggingListener;
 import com.flowforge.event.MetricsListener;
 import com.flowforge.event.NotificationListener;
+import com.flowforge.exception.TaskExecutionException;
 import com.flowforge.model.WorkflowDefinition;
 import com.flowforge.pipeline.*;
+import com.flowforge.plugin.PluginContext;
+import com.flowforge.plugin.PluginRegistry;
+import com.flowforge.plugin.builtin.AuditTrailPlugin;
+import com.flowforge.plugin.builtin.FileOperationsPlugin;
+import com.flowforge.plugin.builtin.SlackNotificationPlugin;
 import com.flowforge.task.TaskFactory;
 import com.flowforge.task.decorator.LoggingDecorator;
-import com.flowforge.task.decorator.RetryDecorator;
 
 import java.util.Map;
 import java.util.Set;
@@ -19,89 +24,125 @@ import java.util.Set;
 public class Main {
 
     public static void main(String[] args) {
-        // --- Wire event system ---
+
+        // ============================================================
+        // STEP 1: Create core components (the "micro" kernel)
+        // ============================================================
         EventBus eventBus = new EventBus();
         MetricsListener metrics = new MetricsListener();
         eventBus.subscribeAll(new LoggingListener());
         eventBus.subscribeAll(new NotificationListener());
         eventBus.subscribeAll(metrics);
 
-        // --- Create factory with decorators ---
         TaskFactory factory = new TaskFactory();
-        factory.setGlobalDecorator(task ->
-                new LoggingDecorator(new RetryDecorator(task, 1, 100))
-        );
+        factory.setGlobalDecorator(LoggingDecorator::new);
 
-        // --- Create engine ---
-        WorkflowEngine engine = new WorkflowEngine(factory, eventBus);
-        engine.registerStrategy(new ParallelStrategy());
-
-        // --- Build the pre-execution pipeline ---
         Pipeline pipeline = new Pipeline()
                 .addHandler(new ValidationHandler(factory))
-                .addHandler(new AuthorizationHandler("admin", Set.of("Admin-Only Workflow")))
-                .addHandler(new RateLimitHandler(5000))   // 5 second cooldown
+                .addHandler(new AuthorizationHandler("admin", Set.of()))
                 .addHandler(new TransformHandler());
 
+        WorkflowEngine engine = new WorkflowEngine(factory, eventBus);
         engine.setPipeline(pipeline);
-        System.out.println("Pipeline handlers: " + pipeline.getHandlerNames());
+        engine.registerStrategy(new ParallelStrategy());
 
-        // SCENARIO 1: Normal execution — all pipeline handlers pass
-        // Note: query uses ${timestamp} placeholder → enriched by TransformHandler
+        // ============================================================
+        // STEP 2: Create the plugin context (extension hooks)
+        // ============================================================
+        PluginContext pluginContext = new PluginContext(
+                factory,
+                eventBus,
+                pipeline,
+                engine::registerStrategy  // method reference as StrategyRegistrar
+        );
+
+        // ============================================================
+        // STEP 3: Register plugins
+        // ============================================================
+        System.out.println("========== Plugin Registration ==========\n");
+        PluginRegistry registry = new PluginRegistry(pluginContext);
+
+        AuditTrailPlugin auditPlugin = new AuditTrailPlugin();
+
+        registry.register(new SlackNotificationPlugin(
+                "https://hooks.slack.com/services/XXX", "#ops-alerts"));
+        registry.register(new FileOperationsPlugin());
+        registry.register(auditPlugin);
+
+        // ============================================================
+        // STEP 4: Initialize + Start all plugins
+        // ============================================================
+        System.out.println("\n========== Plugin Initialization ==========\n");
+        registry.initializeAll();
+
+        System.out.println("\n========== Plugin Startup ==========\n");
+        registry.startAll();
+
+        registry.printStatus();
+
+        // ============================================================
+        // STEP 5: Run workflows — plugins enhance execution
+        // ============================================================
+
+        // Workflow 1: Uses built-in tasks + pipeline + Slack + audit
         WorkflowDefinition etl = WorkflowBuilder.create()
-                .name("ETL Pipeline")
-                .cronTrigger("0 2 * * *")
-                .addHttpGet("Extract Data", "https://api.source.com/data")
-                .addTransformTask("Normalize", "raw_data", "normalize")
-                .addDatabaseTask("Load", "INSERT INTO warehouse VALUES('${timestamp}', '${workflow.name}')")
+                .name("Data Sync Pipeline")
+                .cronTrigger("0 */6 * * *")
+                .addHttpGet("Fetch Updates", "https://api.partner.com/changes")
+                .addTransformTask("Merge Changes", "raw_updates", "merge")
+                .addDatabaseTask("Apply to DB", "CALL sp_sync('${timestamp}')")
                 .sequential()
                 .build();
 
-        System.out.println("\n========== SCENARIO 1: Normal Pipeline Execution ==========\n");
+        System.out.println("\n========== WORKFLOW 1: Data Sync (built-in tasks) ==========\n");
         engine.registerWorkflow(etl);
         engine.executeWorkflow(etl.getId());
 
-        // SCENARIO 2: Authorization failure — user "intern" tries restricted workflow
-        Pipeline restrictedPipeline = new Pipeline()
-                .addHandler(new ValidationHandler(factory))
-                .addHandler(new AuthorizationHandler("intern", Set.of("Admin-Only Workflow")))
-                .addHandler(new TransformHandler());
+        // Workflow 2: Uses plugin-provided task types (ftp, file_copy)
+        // These types didn't exist before FileOperationsPlugin was loaded!
+        WorkflowDefinition fileWorkflow = WorkflowBuilder.create()
+                .name("File Export Pipeline")
+                .webhookTrigger("/api/export")
+                .addDatabaseTask("Export to CSV", "COPY sales TO '/tmp/sales.csv'")
+                .addTask("Copy to Staging", "file_copy", Map.of(
+                        "source", "/tmp/sales.csv",
+                        "destination", "/staging/sales.csv"))
+                .addTask("Upload to Partner", "ftp", Map.of(
+                        "host", "ftp.partner.com",
+                        "file", "/staging/sales.csv",
+                        "direction", "upload"))
+                .addTask("Cleanup Temp", "file_delete", Map.of(
+                        "path", "/tmp/sales.csv"))
+                .sequential()
+                .build();
 
-        // Create a separate engine with restricted pipeline for this demo
-        WorkflowEngine restrictedEngine = new WorkflowEngine(factory, eventBus);
-        restrictedEngine.setPipeline(restrictedPipeline);
+        System.out.println("\n========== WORKFLOW 2: File Export (plugin tasks) ==========\n");
+        engine.registerWorkflow(fileWorkflow);
+        engine.executeWorkflow(fileWorkflow.getId());
 
-        WorkflowDefinition adminWorkflow = WorkflowBuilder.create()
-                .name("Admin-Only Workflow")
+        // Workflow 3: Fails — triggers Slack notification via plugin
+        WorkflowDefinition bad = WorkflowBuilder.create()
+                .name("Failing Job")
                 .manualTrigger()
-                .addDatabaseTask("Drop Tables", "DROP TABLE users")
+                .addTask("Mystery Task", "nonexistent_type", Map.of())
                 .sequential()
                 .build();
 
-        System.out.println("\n========== SCENARIO 2: Authorization Denied ==========\n");
-        restrictedEngine.registerWorkflow(adminWorkflow);
-        restrictedEngine.executeWorkflow(adminWorkflow.getId());
+        System.out.println("\n========== WORKFLOW 3: Failure (Slack alert) ==========\n");
+        engine.registerWorkflow(bad);
+        engine.executeWorkflow(bad.getId()); // Pipeline validation will catch this
 
-        // SCENARIO 3: Rate limiting — same workflow executed twice rapidly
-        WorkflowDefinition quickJob = WorkflowBuilder.create()
-                .name("Quick Job")
-                .webhookTrigger("/api/webhook/quick")
-                .addHttpGet("Ping", "https://api.health.com/ping")
-                .sequential()
-                .build();
-
-        System.out.println("\n========== SCENARIO 3: Rate Limiting ==========\n");
-        engine.registerWorkflow(quickJob);
-        System.out.println("--- First execution (should pass) ---");
-        engine.executeWorkflow(quickJob.getId());
-
-        // Reset status so it's executable again
-        quickJob.setStatus(com.flowforge.model.WorkflowStatus.CREATED);
-        System.out.println("\n--- Second execution immediately (should be rate limited) ---");
-        engine.executeWorkflow(quickJob.getId());
-
-        // METRICS
-        System.out.println("\n========== Metrics Report ==========\n");
+        // ============================================================
+        // STEP 6: Reports + Shutdown
+        // ============================================================
+        System.out.println("\n========== Metrics ==========\n");
         metrics.printReport();
+
+        System.out.println("\n========== Audit Trail ==========\n");
+        auditPlugin.printAuditTrail();
+
+        System.out.println("\n========== Shutdown ==========\n");
+        registry.stopAll();
+        registry.printStatus();
     }
 }
