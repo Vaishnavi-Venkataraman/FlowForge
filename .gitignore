@@ -2,3 +2,6 @@ target/
 *.class
 *.log
 .vscode/
+*.db
+*.json
+data/
