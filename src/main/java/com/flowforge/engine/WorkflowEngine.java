@@ -6,53 +6,33 @@ import com.flowforge.model.TaskConfig;
 import com.flowforge.model.TaskResult;
 import com.flowforge.model.WorkflowDefinition;
 import com.flowforge.model.WorkflowStatus;
-import com.flowforge.task.*;
+import com.flowforge.task.Task;
+import com.flowforge.task.TaskFactory;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/**
- * Workflow execution engine — refactored to use domain models and Task interface.
- *
- * IMPROVEMENTS OVER COMMIT 1:
- * - Uses typed domain models instead of HashMap<String, Object>
- * - Task interface replaces the if-else chain (OCP)
- * - Proper exception handling instead of println + return null
- * - Workflow lookup via HashMap (O(1)) instead of linear scan
- * - Separated logs list from direct console output
- *
- * REMAINING PROBLEMS (to fix in later commits):
- * - Still has inline task creation (needs Factory pattern — Commit 3)
- * - Only sequential execution (needs Strategy pattern — Commit 4)
- * - Logging/notification still inline (needs Observer pattern — Commit 5)
- * - Workflow creation is verbose (needs Builder pattern — Commit 6)
- */
 public class WorkflowEngine {
 
     private final Map<String, WorkflowDefinition> workflows = new HashMap<>();
     private final List<String> logs = new ArrayList<>();
+    private final TaskFactory taskFactory;
 
     /**
-     * Registers a workflow definition.
-     *
-     * @param workflow the workflow to register
-     * @return the workflow ID
+     * Engine now receives its TaskFactory — a step toward dependency injection.
      */
+    public WorkflowEngine(TaskFactory taskFactory) {
+        this.taskFactory = taskFactory;
+    }
+
     public String registerWorkflow(WorkflowDefinition workflow) {
         workflows.put(workflow.getId(), workflow);
         log("Registered workflow: " + workflow.getName() + " [" + workflow.getId() + "]");
         return workflow.getId();
     }
 
-    /**
-     * Executes a workflow by ID.
-     *
-     * @param workflowId the ID of the workflow to execute
-     * @throws WorkflowNotFoundException if the ID is not found
-     * @throws TaskExecutionException    if a task fails
-     */
     public void executeWorkflow(String workflowId) {
         WorkflowDefinition workflow = workflows.get(workflowId);
         if (workflow == null) {
@@ -60,19 +40,18 @@ public class WorkflowEngine {
         }
 
         if (!workflow.getStatus().isExecutable()) {
-            log("Workflow " + workflow.getName() + " is not executable (status: " + workflow.getStatus() + ")");
+            log("Workflow " + workflow.getName() + " not executable (status: " + workflow.getStatus() + ")");
             return;
         }
 
         workflow.setStatus(WorkflowStatus.RUNNING);
         log("Started workflow: " + workflow.getName());
-
-        // STILL A PROBLEM: notification is inline here — will fix with Observer in Commit 5
         System.out.println("NOTIFICATION: Workflow " + workflow.getName() + " started");
 
         try {
             for (TaskConfig taskConfig : workflow.getTasks()) {
-                Task task = createTask(taskConfig);
+                // Factory creates the task — engine doesn't know concrete types
+                Task task = taskFactory.createTask(taskConfig);
                 log("Executing task: " + task.getName() + " [" + task.getType() + "]");
 
                 TaskResult result = task.execute(taskConfig);
@@ -97,36 +76,16 @@ public class WorkflowEngine {
     }
 
     /**
-     * Creates a Task from config.
-     *
-     * PROBLEM: This is still a crude switch — will be replaced by Factory pattern in Commit 3.
-     * But it's already better than the original because new tasks only need a new case here,
-     * not changes to the execution logic.
+     * Provides access to the factory so callers can register custom task types.
      */
-    private Task createTask(TaskConfig config) {
-        return switch (config.getType()) {
-            case "http" -> new HttpTask(config.getName());
-            case "email" -> new EmailTask(config.getName());
-            case "transform" -> new TransformTask(config.getName());
-            case "database" -> new DatabaseTask(config.getName());
-            case "delay" -> new DelayTask(config.getName());
-            default -> throw new TaskExecutionException(
-                    config.getName(), "Unknown task type: " + config.getType());
-        };
+    public TaskFactory getTaskFactory() {
+        return taskFactory;
     }
 
-    /**
-     * Returns an unmodifiable copy of logs.
-     */
     public List<String> getLogs() {
         return List.copyOf(logs);
     }
 
-    /**
-     * Prints workflow statistics.
-     *
-     * PROBLEM: reporting logic still lives in the engine — will extract later.
-     */
     public void printStats() {
         long total = workflows.size();
         long completed = workflows.values().stream()
