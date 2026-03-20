@@ -1,15 +1,26 @@
 package com.flowforge.web;
 
-import java.io.*;
+import java.io.IOException;
+import java.io.PrintWriter;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
-import java.util.*;
+import java.util.HexFormat;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
+/**
+ * File-persisted user store with password validation and session management.
+ */
 public class UserStore {
 
+    private static final Logger LOGGER = Logger.getLogger(UserStore.class.getName());
     private static final Path DATA_DIR = Path.of("data");
     private static final Path USERS_FILE = DATA_DIR.resolve("users.dat");
 
@@ -22,18 +33,24 @@ public class UserStore {
         loadFromDisk();
     }
 
-    /**
-     * Registers a new user with validation. Returns error message or null on success.
-     */
     public String register(String username, String password, String displayName) {
-        if (username == null || username.isBlank()) return "Username is required";
-        if (username.length() < 3) return "Username must be at least 3 characters";
-        if (!username.matches("^[a-zA-Z0-9_]+$")) return "Username can only contain letters, numbers, and underscores";
-        if (users.containsKey(username.toLowerCase())) return "Username '" + username + "' is already taken";
+        if (username == null || username.isBlank()) {
+            return "Username is required";
+        }
+        if (username.length() < 3) {
+            return "Username must be at least 3 characters";
+        }
+        if (!username.matches("^\\w+$")) {
+            return "Username can only contain letters, numbers, and underscores";
+        }
+        if (users.containsKey(username.toLowerCase())) {
+            return "Username '" + username + "' is already taken";
+        }
 
-        // Password validation
         String pwError = validatePassword(password);
-        if (pwError != null) return pwError;
+        if (pwError != null) {
+            return pwError;
+        }
 
         String hash = hashPassword(password);
         users.put(username.toLowerCase(), new UserRecord(
@@ -46,29 +63,51 @@ public class UserStore {
     }
 
     /**
-     * Validates password strength.
+     * Validates password strength using simple char-by-char checks
+     * instead of regex to avoid ReDoS (polynomial backtracking) vulnerabilities.
      */
     public static String validatePassword(String password) {
         if (password == null || password.length() < 6) {
             return "Password must be at least 6 characters";
         }
-        if (!password.matches(".*[0-9].*")) {
+
+        boolean hasDigit = false;
+        boolean hasUpper = false;
+        boolean hasSpecial = false;
+
+        for (char c : password.toCharArray()) {
+            if (Character.isDigit(c)) {
+                hasDigit = true;
+            } else if (Character.isUpperCase(c)) {
+                hasUpper = true;
+            } else if (!Character.isLetterOrDigit(c)) {
+                hasSpecial = true;
+            }
+        }
+
+        if (!hasDigit) {
             return "Password must contain at least one number";
         }
-        if (!password.matches(".*[!@#$%^&*()_+\\-=\\[\\]{};':\"\\\\|,.<>/?].*")) {
+        if (!hasSpecial) {
             return "Password must contain at least one special character (!@#$%^&* etc.)";
         }
-        if (!password.matches(".*[A-Z].*")) {
+        if (!hasUpper) {
             return "Password must contain at least one uppercase letter";
         }
         return null;
     }
 
     public String login(String username, String password) {
-        if (username == null || password == null) return null;
+        if (username == null || password == null) {
+            return null;
+        }
         UserRecord user = users.get(username.toLowerCase());
-        if (user == null) return null;
-        if (!user.passwordHash().equals(hashPassword(password))) return null;
+        if (user == null) {
+            return null;
+        }
+        if (!user.passwordHash().equals(hashPassword(password))) {
+            return null;
+        }
 
         String sessionId = UUID.randomUUID().toString();
         sessions.put(sessionId, username.toLowerCase());
@@ -76,7 +115,9 @@ public class UserStore {
     }
 
     public String getUsername(String sessionId) {
-        if (sessionId == null) return null;
+        if (sessionId == null) {
+            return null;
+        }
         return sessions.get(sessionId);
     }
 
@@ -88,7 +129,6 @@ public class UserStore {
         sessions.remove(sessionId);
     }
 
-    // --- Persistence ---
     private void saveToDisk() {
         try {
             Files.createDirectories(DATA_DIR);
@@ -99,12 +139,14 @@ public class UserStore {
                 }
             }
         } catch (IOException e) {
-            System.err.println("[UserStore] Failed to save: " + e.getMessage());
+            LOGGER.log(Level.SEVERE, "Failed to save users", e);
         }
     }
 
     private void loadFromDisk() {
-        if (!Files.exists(USERS_FILE)) return;
+        if (!Files.exists(USERS_FILE)) {
+            return;
+        }
         try {
             List<String> lines = Files.readAllLines(USERS_FILE);
             for (String line : lines) {
@@ -113,9 +155,9 @@ public class UserStore {
                     users.put(parts[0], new UserRecord(parts[0], parts[1], parts[2], Long.parseLong(parts[3])));
                 }
             }
-            System.out.println("[UserStore] Loaded " + users.size() + " users from disk");
+            LOGGER.info("Loaded " + users.size() + " users from disk");
         } catch (IOException e) {
-            System.err.println("[UserStore] Failed to load: " + e.getMessage());
+            LOGGER.log(Level.SEVERE, "Failed to load users", e);
         }
     }
 
@@ -125,7 +167,7 @@ public class UserStore {
             byte[] hash = digest.digest(password.getBytes(StandardCharsets.UTF_8));
             return HexFormat.of().formatHex(hash);
         } catch (NoSuchAlgorithmException e) {
-            throw new RuntimeException("SHA-256 not available", e);
+            throw new IllegalStateException("SHA-256 not available", e);
         }
     }
 }
