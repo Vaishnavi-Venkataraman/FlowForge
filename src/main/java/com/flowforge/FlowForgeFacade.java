@@ -31,7 +31,6 @@ import java.util.function.Predicate;
  */
 public class FlowForgeFacade {
 
-    // --- Singleton via Holder pattern (lazy, thread-safe) ---
     private static class Holder {
         private static final FlowForgeFacade INSTANCE = new FlowForgeFacade();
     }
@@ -114,11 +113,15 @@ public class FlowForgeFacade {
         return id;
     }
 
-    public void registerWorkflowWithId(String existingId, WorkflowDefinition workflow) {
-        engine.registerWorkflow(workflow); // registers with workflow's own UUID
+    /**
+     * Re-registers a workflow with a specific stored ID (for persistence reload).
+     */
+    public void registerWorkflowWithId(String storedId, WorkflowDefinition workflow) {
+        executionService.registerWorkflow(workflow);
         if (workflow.getTrigger() != null) {
-            triggerService.registerTrigger(existingId, workflow.getName(),
-                    workflow.getTriggerTypeName(), workflow.getTriggerValue());
+            triggerService.registerTrigger(storedId, workflow.getName(),
+                    workflow.getTriggerTypeName(),
+                    workflow.getTriggerValue());
         }
     }
 

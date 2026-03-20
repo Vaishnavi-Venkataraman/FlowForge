@@ -5,11 +5,10 @@ import java.nio.file.*;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.Set;
 
 /**
- * Each user's workflows are saved to data/workflows/{username}.dat
- * Execution history saved to data/executions/{workflowId}.dat
+ * File-persisted per-user workflow storage.
+ * Data saved to data/workflows/ and data/executions/ — survives restarts.
  */
 public class WorkflowStore {
 
@@ -39,7 +38,7 @@ public class WorkflowStore {
 
     public void saveWorkflow(String owner, StoredWorkflow workflow) {
         store.computeIfAbsent(owner, k -> new CopyOnWriteArrayList<>()).add(workflow);
-        saveUserWorkflows(owner);
+        persistUserWorkflows(owner);
     }
 
     public List<StoredWorkflow> getWorkflows(String owner) {
@@ -52,16 +51,16 @@ public class WorkflowStore {
                 .findFirst().orElse(null);
     }
 
+    public Set<String> getAllOwners() {
+        return store.keySet();
+    }
+
     public void addExecution(String owner, String workflowId, ExecutionRecord record) {
         StoredWorkflow wf = getWorkflow(owner, workflowId);
         if (wf != null) {
             wf.executions().add(record);
-            saveExecution(workflowId, record);
+            persistExecution(workflowId, record);
         }
-    }
-
-    public Set<String> getAllOwners() {
-        return store.keySet();
     }
 
     public boolean deleteWorkflow(String owner, String workflowId) {
@@ -69,7 +68,7 @@ public class WorkflowStore {
         if (workflows == null) return false;
         boolean removed = workflows.removeIf(w -> w.id().equals(workflowId));
         if (removed) {
-            saveUserWorkflows(owner);
+            persistUserWorkflows(owner);
             try { Files.deleteIfExists(EXEC_DIR.resolve(workflowId + ".dat")); } catch (IOException ignored) {}
         }
         return removed;
@@ -77,12 +76,11 @@ public class WorkflowStore {
 
     // --- Persistence ---
 
-    private void saveUserWorkflows(String owner) {
+    private void persistUserWorkflows(String owner) {
         try {
             Files.createDirectories(WF_DIR);
             try (PrintWriter pw = new PrintWriter(Files.newBufferedWriter(WF_DIR.resolve(owner + ".dat")))) {
                 for (StoredWorkflow wf : getWorkflows(owner)) {
-                    // Format: id|name|triggerType|triggerValue|strategy|createdAt|task1json;task2json
                     StringBuilder tasks = new StringBuilder();
                     for (int i = 0; i < wf.tasks().size(); i++) {
                         TaskInfo t = wf.tasks().get(i);
@@ -99,13 +97,12 @@ public class WorkflowStore {
         }
     }
 
-    private void saveExecution(String workflowId, ExecutionRecord record) {
+    private void persistExecution(String workflowId, ExecutionRecord record) {
         try {
             Files.createDirectories(EXEC_DIR);
-            Path file = EXEC_DIR.resolve(workflowId + ".dat");
-            try (PrintWriter pw = new PrintWriter(new FileWriter(file.toFile(), true))) {
+            try (PrintWriter pw = new PrintWriter(new FileWriter(EXEC_DIR.resolve(workflowId + ".dat").toFile(), true))) {
                 String logsEncoded = String.join("\\n", record.logs().stream()
-                        .map(l -> l.replace("|", "¦").replace("\n", "\\n")).toList());
+                        .map(l -> l.replace("|", "\u00a6").replace("\n", "\\n")).toList());
                 pw.println(record.executionId() + "|" + record.status() + "|"
                         + record.startedAt() + "|" + record.finishedAt() + "|" + logsEncoded);
             }
@@ -115,11 +112,9 @@ public class WorkflowStore {
     }
 
     private void loadAllFromDisk() {
-        try {
-            if (!Files.exists(WF_DIR)) return;
-            try (var files = Files.list(WF_DIR)) {
-                files.filter(p -> p.toString().endsWith(".dat")).forEach(this::loadUserFile);
-            }
+        if (!Files.exists(WF_DIR)) return;
+        try (var files = Files.list(WF_DIR)) {
+            files.filter(p -> p.toString().endsWith(".dat")).forEach(this::loadUserFile);
         } catch (IOException e) {
             System.err.println("[WorkflowStore] Load failed: " + e.getMessage());
         }
@@ -128,43 +123,41 @@ public class WorkflowStore {
     private void loadUserFile(Path file) {
         String owner = file.getFileName().toString().replace(".dat", "");
         try {
-            List<String> lines = Files.readAllLines(file);
-            for (String line : lines) {
+            for (String line : Files.readAllLines(file)) {
                 if (line.isBlank()) continue;
                 String[] parts = line.split("\\|", -1);
                 if (parts.length < 7) continue;
 
-                String id = parts[0], name = parts[1], trigType = parts[2],
-                        trigVal = parts[3], strategy = parts[4];
-                long createdAt = Long.parseLong(parts[5]);
-                String tasksStr = parts[6];
+                List<TaskInfo> tasks = parseTasks(parts[6]);
+                List<ExecutionRecord> execs = loadExecutions(parts[0]);
 
-                List<TaskInfo> tasks = new ArrayList<>();
-                if (!tasksStr.isBlank()) {
-                    for (String tStr : tasksStr.split(";")) {
-                        String[] tParts = tStr.split("~", 3);
-                        if (tParts.length < 2) continue;
-                        Map<String, String> params = new HashMap<>();
-                        if (tParts.length == 3 && !tParts[2].isBlank()) {
-                            for (String kv : tParts[2].split(",")) {
-                                String[] kvParts = kv.split("=", 2);
-                                if (kvParts.length == 2) params.put(kvParts[0], kvParts[1]);
-                            }
-                        }
-                        tasks.add(new TaskInfo(tParts[0], tParts[1], params));
-                    }
-                }
-
-                List<ExecutionRecord> execs = loadExecutions(id);
-                StoredWorkflow wf = new StoredWorkflow(id, name, owner, trigType, trigVal,
-                        strategy, tasks, createdAt, new CopyOnWriteArrayList<>(execs));
-                store.computeIfAbsent(owner, k -> new CopyOnWriteArrayList<>()).add(wf);
+                store.computeIfAbsent(owner, k -> new CopyOnWriteArrayList<>()).add(
+                        new StoredWorkflow(parts[0], parts[1], owner, parts[2], parts[3],
+                                parts[4], tasks, Long.parseLong(parts[5]),
+                                new CopyOnWriteArrayList<>(execs)));
             }
-            System.out.println("[WorkflowStore] Loaded " + getWorkflows(owner).size()
-                    + " workflows for user: " + owner);
+            System.out.println("[WorkflowStore] Loaded " + getWorkflows(owner).size() + " workflows for: " + owner);
         } catch (IOException e) {
             System.err.println("[WorkflowStore] Failed loading " + file + ": " + e.getMessage());
         }
+    }
+
+    private List<TaskInfo> parseTasks(String tasksStr) {
+        List<TaskInfo> tasks = new ArrayList<>();
+        if (tasksStr.isBlank()) return tasks;
+        for (String tStr : tasksStr.split(";")) {
+            String[] tParts = tStr.split("~", 3);
+            if (tParts.length < 2) continue;
+            Map<String, String> params = new HashMap<>();
+            if (tParts.length == 3 && !tParts[2].isBlank()) {
+                for (String kv : tParts[2].split(",")) {
+                    String[] kvp = kv.split("=", 2);
+                    if (kvp.length == 2) params.put(kvp[0], kvp[1]);
+                }
+            }
+            tasks.add(new TaskInfo(tParts[0], tParts[1], params));
+        }
+        return tasks;
     }
 
     private List<ExecutionRecord> loadExecutions(String workflowId) {
@@ -172,13 +165,12 @@ public class WorkflowStore {
         Path file = EXEC_DIR.resolve(workflowId + ".dat");
         if (!Files.exists(file)) return execs;
         try {
-            List<String> lines = Files.readAllLines(file);
-            for (String line : lines) {
+            for (String line : Files.readAllLines(file)) {
                 if (line.isBlank()) continue;
                 String[] parts = line.split("\\|", 5);
                 if (parts.length < 5) continue;
                 List<String> logs = new ArrayList<>(Arrays.asList(
-                        parts[4].replace("\\n", "\n").replace("¦", "|").split("\n")));
+                        parts[4].replace("\\n", "\n").replace("\u00a6", "|").split("\n")));
                 execs.add(new ExecutionRecord(parts[0], parts[1],
                         Long.parseLong(parts[2]), Long.parseLong(parts[3]), logs));
             }
