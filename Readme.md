@@ -1,8 +1,8 @@
 # FlowForge — Intelligent Workflow Automation Platform
 
 A Java 21 Zapier-lite workflow automation engine with a **web dashboard**,
-demonstrating **12 design patterns**, **4 architectural patterns**,
-progressive **refactoring**, and **static code analysis**.
+demonstrating **11 design patterns**, **5 architectural patterns**,
+progressive **refactoring**, and **static code analysis** via SonarCloud.
 
 ---
 
@@ -20,64 +20,79 @@ See **USER_MANUAL.md** for detailed examples of every workflow type.
 
 ---
 
-## Commit History
+## Design Patterns
 
-| # | Commit | Patterns |
-|---|--------|----------|
-| 1 | Naive monolithic God class | — |
-| 2 | Domain models + interfaces | SRP, OCP |
-| 3 | Task system | Command, Factory |
-| 4 | Execution strategies | Strategy |
-| 5 | Event system | Observer, Pub-Sub |
-| 6 | Workflow construction | Builder |
-| 7 | Task lifecycle + enhancement | Template Method, Decorator |
-| 8 | Pre-execution pipeline | Chain of Responsibility, Pipes & Filters |
-| 9 | Plugin system | Microkernel |
-| 10 | External integrations | Adapter |
-| 11 | Service boundaries | Microservices |
-| 12 | Cleanup redundancy | — |
-| 13 | Simplified API | Singleton, Facade |
-| 14 | SOLID refactoring | Extract Method, Encapsulation, Thread Safety |
-| 15 | Web UI + persistence | File-based storage, REST API, SPA |
+| # | Pattern | Class(es) | Purpose |
+|---|---------|-----------|---------|
+| 1 | **Factory Method** | `TaskFactory` | Creates task instances by type name at runtime without hardcoding constructors |
+| 2 | **Builder** | `WorkflowBuilder` | Fluent step-by-step construction of complex `WorkflowDefinition` objects |
+| 3 | **Singleton** | `FlowForgeFacade` (Holder idiom) | One engine instance per JVM — thread-safe lazy initialization |
+| 4 | **Command** | `Task` interface | Encapsulates workflow actions as objects with uniform `execute()` contract |
+| 5 | **Strategy** | `ExecutionStrategy` → `SequentialStrategy`, `ParallelStrategy`, `ConditionalStrategy` | Pluggable execution algorithms — switch between sequential, parallel, or conditional at runtime |
+| 6 | **Observer** | `EventBus`, `EventListener`, `LoggingListener` | Reactive event notification — decouple workflow engine from logging/monitoring |
+| 7 | **Template Method** | `AbstractTask` → `HttpTask`, `EmailTask`, `DatabaseTask`, etc. | Fixed lifecycle (validate → doExecute → cleanup) with customizable steps |
+| 8 | **Chain of Responsibility** | `PipelineHandler` → `ValidationHandler`, `AuthorizationHandler`, `RateLimitHandler`, `TransformHandler` | Pre-execution pipeline where each handler decides to process or abort |
+| 9 | **Decorator** | `TaskDecorator` → `RetryDecorator`, `LoggingDecorator`, `TimeoutDecorator` | Dynamically wrap tasks with retry, logging, timeout without modifying task code |
+| 10 | **Adapter** | `ExternalService` → `RestServiceAdapter`, `SoapServiceAdapter`, `CloudStorageAdapter` | Unified interface for REST, SOAP, and cloud storage — protocol differences hidden |
+| 11 | **Facade** | `FlowForgeFacade` | Single simplified API hiding 10+ subsystems (engine, services, plugins, pipeline) |
+
+## Architectural Patterns
+
+| # | Pattern | Where | How |
+|---|---------|-------|-----|
+| 1 | **Event-Driven** | `EventBus` + `WorkflowEvent` + listeners | Workflow lifecycle events published and consumed reactively |
+| 2 | **Pipes & Filters** | `Pipeline` + `PipelineHandler` chain | Request flows through validation → auth → rate-limit → transform filters |
+| 3 | **Microkernel** | `Plugin` + `PluginContext` + `PluginRegistry` | Core is minimal; features added via plugins (FileOperationsPlugin registers ftp/file_copy/file_delete tasks) |
+| 4 | **Microservices** | `ServiceBus` + `ExecutionService`, `NotificationService`, `AnalyticsService`, `AuditService`, `TriggerService` | Five independent services communicate via message bus — simulates distributed architecture in-process |
+| 5 | **Pub-Sub** | `ServiceBus`, `ServiceMessage` | Asynchronous inter-service messaging — services communicate via named channels without direct coupling |
 
 ---
 
-## Design Patterns (12)
+## Commit History
 
-| # | Pattern | Class(es) | Why |
-|---|---------|-----------|-----|
-| 1 | Factory Method | `TaskFactory` | Decouple task creation |
-| 2 | Builder | `WorkflowBuilder` | Complex construction |
-| 3 | Singleton | `FlowForgeFacade` | One engine per JVM |
-| 4 | Command | `Task` | Encapsulate execution |
-| 5 | Strategy | `ExecutionStrategy` | Pluggable algorithms |
-| 6 | Observer | `EventBus` | Reactive events |
-| 7 | Template Method | `AbstractTask` | Standard lifecycle |
-| 8 | Chain of Responsibility | `PipelineHandler` | Pre-processing |
-| 9 | Decorator | `RetryDecorator`, `LoggingDecorator`, `TimeoutDecorator` | Dynamic enhancement |
-| 10 | Adapter | `RestServiceAdapter`, `SoapServiceAdapter`, `CloudStorageAdapter` | Unified external API |
-| 11 | Facade | `FlowForgeFacade` | Hide complexity |
-
-## Architectural Patterns (4)
-
-| # | Pattern | Where |
-|---|---------|-------|
-| 1 | Pub-Sub | `EventBus` + listeners |
-| 2 | Pipes & Filters | `Pipeline` + handlers |
-| 3 | Microkernel | `Plugin` system |
-| 4 | Microservices | `ServiceBus` + 5 services |
+| # | Commit | What Changed |
+|---|--------|-------------|
+| 1 | Naive monolithic God class | Intentionally bad starting point |
+| 2 | Domain models + interfaces | SRP, OCP — clean separation |
+| 3 | Task system | Command + Factory patterns |
+| 4 | Execution strategies | Strategy pattern |
+| 5 | Event system | Observer + Pub-Sub |
+| 6 | Workflow construction | Builder pattern |
+| 7 | Task lifecycle + wrappers | Template Method + Decorator |
+| 8 | Pre-execution pipeline | Chain of Responsibility + Pipes & Filters |
+| 9 | Plugin system | Microkernel architecture |
+| 10 | External integrations | Adapter pattern |
+| 11 | Service boundaries | Microservices architecture |
+| 12 | Cleanup redundancy | Removed 4 redundant files, re-wired 5 |
+| 13 | Simplified API | Singleton + Facade |
+| 14 | SOLID refactoring | Guard clauses, thread safety, Extract Method |
+| 15 | Web UI + persistence | HTTP server, SPA, file-based storage, dark mode |
+| 16 | Static analysis config | Checkstyle, PMD, SonarCloud |
 
 ---
 
 ## Web UI Features
 
-- Sign Up / Sign In with password validation (6+ chars, uppercase, number, symbol)
-- Dark mode toggle (persisted)
-- Dashboard with stats (workflows, executions, success rate)
-- Visual workflow builder with type-specific parameter fields
-- Task types: http, email, transform, database, delay, ftp, file_copy, file_delete, external_service
-- Execution history with expandable color-coded logs
-- File-based persistence — data survives restarts
+- **Sign Up / Sign In** with password validation (6+ chars, uppercase, number, symbol)
+- **Dark mode** toggle (persisted across sessions)
+- **Dashboard** with stats (workflows, executions, success rate)
+- **Workflow builder** with 9 task types and type-specific parameter fields
+- **Execution history** with expandable color-coded logs (blue=pipeline, green=success, red=error, orange=warning)
+- **File-based persistence** — users, workflows, and execution history survive restarts
+
+### Task Types Available in UI
+
+| Type | Description | Parameters |
+|------|-------------|------------|
+| `http` | HTTP request | url, method |
+| `email` | Send email | to, subject |
+| `transform` | Data transformation | input, operation |
+| `database` | SQL query | query |
+| `delay` | Wait N seconds | seconds |
+| `ftp` | FTP transfer | host, file |
+| `file_copy` | Copy file | source, destination |
+| `file_delete` | Delete file | path |
+| `external_service` | Call REST/SOAP/S3 adapter | serviceId, operation, path |
 
 ---
 
@@ -86,7 +101,7 @@ See **USER_MANUAL.md** for detailed examples of every workflow type.
 ```
 Browser (SPA) ──HTTP──> WebServer ──> AuthHandler / WorkflowApiHandler
                                           │
-                                    FlowForgeFacade (Singleton)
+                                    FlowForgeFacade (Singleton + Facade)
                                           │
                     ┌─────────────────────┼──────────────────────┐
                     │                     │                      │
@@ -94,22 +109,23 @@ Browser (SPA) ──HTTP──> WebServer ──> AuthHandler / WorkflowApiHandl
                     │              (WorkflowEngine)        AnalyticsService
                     │                     │                AuditService
                     └──── ServiceBus ─────┘
+                              (Pub-Sub / Microservices)
                                           │
                     ┌─────────────────────┼──────────────────────┐
                     │                     │                      │
                 Pipeline            TaskFactory              EventBus
-              (Validation       (Command+Factory)          (Observer)
-               Auth, Rate         │       │
-               Transform)    Decorators  Strategies
-                              (Retry     (Sequential
-                               Log        Parallel
-                               Timeout)   Conditional)
-                                          │
-                    ┌─────────────────────┼──────────────────────┐
-                    │                     │                      │
-              PluginRegistry       ServiceRegistry         Domain Models
-              (FileOpsPlugin)    (REST, SOAP, S3          (WorkflowDefinition
-                                  Adapters)                TaskConfig, etc.)
+              (Chain of Resp.     (Factory+Command)         (Observer)
+               Pipes&Filters)       │       │
+                                Decorators  Strategies
+                                (Decorator) (Strategy)
+                                    │
+                              AbstractTask
+                            (Template Method)
+                                    │
+                    ┌───────────────┼───────────────┐
+                    │               │               │
+              PluginRegistry   ServiceRegistry   Domain Models
+              (Microkernel)    (Adapter:         (WorkflowDefinition
+               FileOpsPlugin    REST/SOAP/S3)     TaskConfig, etc.)
 ```
-
 ---
