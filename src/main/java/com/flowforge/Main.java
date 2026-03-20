@@ -49,12 +49,20 @@ public class Main {
         System.out.println();
 
         // Auto-open browser
-        try {
-            String os = System.getProperty("os.name").toLowerCase();
-            if (os.contains("win")) Runtime.getRuntime().exec("cmd /c start http://localhost:" + PORT);
-            else if (os.contains("mac")) Runtime.getRuntime().exec("open http://localhost:" + PORT);
-            else Runtime.getRuntime().exec("xdg-open http://localhost:" + PORT);
-        } catch (Exception ignored) {}
+            try {
+        String os = System.getProperty("os.name").toLowerCase();
+
+        if (os.contains("win")) {
+            new ProcessBuilder("cmd", "/c", "start", "http://localhost:" + PORT).start();
+        } else if (os.contains("mac")) {
+            new ProcessBuilder("open", "http://localhost:" + PORT).start();
+        } else {
+            new ProcessBuilder("xdg-open", "http://localhost:" + PORT).start();
+        }
+
+    } catch (Exception ignored) {
+        // Browser auto-open is best-effort; failure is not critical
+    }
 
         Thread.currentThread().join();
     }

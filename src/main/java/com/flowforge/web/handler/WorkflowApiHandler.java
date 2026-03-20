@@ -234,7 +234,7 @@ public class WorkflowApiHandler implements HttpHandler {
 
         long endTime = System.currentTimeMillis();
 
-        ExecutionRecord record = new ExecutionRecord(
+        ExecutionRecord execRecord = new ExecutionRecord(
                 execId,
                 status,
                 startTime,
@@ -242,7 +242,7 @@ public class WorkflowApiHandler implements HttpHandler {
                 logs
         );
 
-        workflowStore.addExecution(username, id, record);
+        workflowStore.addExecution(username, id, execRecord);
 
         System.out.println(
                 "[Execute] " + wf.name() +
@@ -250,7 +250,7 @@ public class WorkflowApiHandler implements HttpHandler {
                 " (" + (endTime - startTime) + "ms)"
         );
 
-        HttpHelper.sendJson(exchange, 200, toExecutionMap(record));
+        HttpHelper.sendJson(exchange, 200, toExecutionMap(execRecord));
     }
 
     private void deleteWorkflow(HttpExchange exchange, String username, String id) throws IOException {

@@ -6,10 +6,6 @@ import com.flowforge.task.AbstractTask;
 import java.util.HashMap;
 import java.util.Map;
 
-/**
- * A generic task that delegates to an adapted ExternalService.
- */
-
 public class ExternalServiceTask extends AbstractTask {
 
     private static final String KEY_SERVICE_ID = "serviceId";

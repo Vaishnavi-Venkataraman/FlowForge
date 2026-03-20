@@ -13,6 +13,7 @@ import com.flowforge.pipeline.Pipeline;
 import com.flowforge.pipeline.PipelineContext;
 import com.flowforge.task.TaskFactory;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
@@ -97,7 +98,7 @@ public class WorkflowEngine {
             eventBus.publish(WorkflowEvent.workflowFailed(
                     workflow.getName(), workflow.getId(),
                     "Pipeline aborted: " + result.getAbortReason()));
-            return null;
+            return Collections.emptyList();
         }
 
         return result.getProcessedTasks();

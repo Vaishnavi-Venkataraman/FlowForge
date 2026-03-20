@@ -95,24 +95,23 @@ public class PluginRegistry {
     /**
      * Stops all started plugins (in reverse order for clean shutdown).
      */
-    public void stopAll() {
-        List<String> ids = new ArrayList<>(plugins.keySet());
-        List<String> reversedIds = ids.reversed();
+        public void stopAll() {
+            List<String> ids = new ArrayList<>(plugins.keySet());
 
-        for (String id : reversedIds) {
-            Plugin plugin = plugins.get(id);
-            if (states.get(id) == PluginState.STARTED) {
-                try {
-                    plugin.stop();
-                    states.put(id, PluginState.STOPPED);
-                    System.out.println("[PluginRegistry] Stopped: " + plugin.getName());
-                } catch (Exception e) {
-                    System.err.println("[PluginRegistry] Error stopping " + plugin.getName()
-                            + ": " + e.getMessage());
+            for (String id : ids.reversed()) {   
+                Plugin plugin = plugins.get(id);
+                if (states.get(id) == PluginState.STARTED) {
+                    try {
+                        plugin.stop();
+                        states.put(id, PluginState.STOPPED);
+                        System.out.println("[PluginRegistry] Stopped: " + plugin.getName());
+                    } catch (Exception e) {
+                        System.err.println("[PluginRegistry] Error stopping " + plugin.getName()
+                                + ": " + e.getMessage());
+                    }
                 }
             }
         }
-    }
 
     /**
      * Returns the state of a plugin.

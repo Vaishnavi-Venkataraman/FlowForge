@@ -55,11 +55,11 @@ public class WorkflowStore {
         return store.keySet();
     }
 
-    public void addExecution(String owner, String workflowId, ExecutionRecord record) {
+    public void addExecution(String owner, String workflowId, ExecutionRecord execRecord) {
         StoredWorkflow wf = getWorkflow(owner, workflowId);
         if (wf != null) {
-            wf.executions().add(record);
-            persistExecution(workflowId, record);
+            wf.executions().add(execRecord);
+            persistExecution(workflowId, execRecord);
         }
     }
 
@@ -97,14 +97,14 @@ public class WorkflowStore {
         }
     }
 
-    private void persistExecution(String workflowId, ExecutionRecord record) {
+    private void persistExecution(String workflowId, ExecutionRecord execRecord) {
         try {
             Files.createDirectories(EXEC_DIR);
             try (PrintWriter pw = new PrintWriter(new FileWriter(EXEC_DIR.resolve(workflowId + ".dat").toFile(), true))) {
-                String logsEncoded = String.join("\\n", record.logs().stream()
+                String logsEncoded = String.join("\\n", execRecord.logs().stream()
                         .map(l -> l.replace("|", "\u00a6").replace("\n", "\\n")).toList());
-                pw.println(record.executionId() + "|" + record.status() + "|"
-                        + record.startedAt() + "|" + record.finishedAt() + "|" + logsEncoded);
+                pw.println(execRecord.executionId() + "|" + execRecord.status() + "|"
+                        + execRecord.startedAt() + "|" + execRecord.finishedAt() + "|" + logsEncoded);
             }
         } catch (IOException e) {
             System.err.println("[WorkflowStore] Exec save failed: " + e.getMessage());
