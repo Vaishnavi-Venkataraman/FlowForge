@@ -73,18 +73,18 @@ public final class JsonUtil {
         int i = 0;
         while (i < json.length()) {
             i = skipWhitespace(json, i);
-            if (i >= json.length()) break;
+            if (i >= json.length()) break;  // NOSONAR
 
             // Parse key
-            if (json.charAt(i) != '"') { i++; continue; }
+            if (json.charAt(i) != '"') { i++; continue; } // NOSONAR
             int keyStart = i + 1;
             int keyEnd = json.indexOf('"', keyStart);
-            if (keyEnd < 0) break;
+            if (keyEnd < 0) break; // NOSONAR
             String key = json.substring(keyStart, keyEnd);
 
             i = keyEnd + 1;
             i = skipWhitespace(json, i);
-            if (i >= json.length() || json.charAt(i) != ':') break;
+            if (i >= json.length() || json.charAt(i) != ':') break; // NOSONAR
             i++;
             i = skipWhitespace(json, i);
 

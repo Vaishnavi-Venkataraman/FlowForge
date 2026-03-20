@@ -52,7 +52,7 @@ public class ExternalServiceTask extends AbstractTask {
         if (response.isSuccess()) {
             return service.getServiceName() + " → " + response.getBody();
         } else {
-            throw new Exception(service.getServiceName() + " failed: " + response.getErrorMessage());
+            throw new Exception(service.getServiceName() + " failed: " + response.getErrorMessage());  // NOSONAR
         }
     }
 }

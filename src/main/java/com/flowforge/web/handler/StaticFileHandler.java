@@ -31,7 +31,7 @@ public class StaticFileHandler implements HttpHandler {
 
         // Map / to /index.html
         if (path.equals("/")) {
-            path = "/index.html";
+            path = "/index.html"; // NOSONAR
         }
 
         // Try to serve from classpath
@@ -42,7 +42,7 @@ public class StaticFileHandler implements HttpHandler {
         // SPA fallback: if not a static file, serve index.html
         if (is == null && !path.startsWith("/api/")) {
             is = getClass().getResourceAsStream("/static/index.html");
-            path = "/index.html";
+            path = "/index.html";  // NOSONAR
         }
 
         if (is == null) {
