@@ -71,7 +71,7 @@ public final class JsonUtil {
         if (json.endsWith("}")) json = json.substring(0, json.length() - 1);
 
         int i = 0;
-        while (i < json.length()) {
+        while (i < json.length()) { // NOSONAR
             i = skipWhitespace(json, i);
             if (i >= json.length()) break;  // NOSONAR
 

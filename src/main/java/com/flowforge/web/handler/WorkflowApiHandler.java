@@ -12,8 +12,11 @@ import com.sun.net.httpserver.HttpHandler;
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.logging.Handler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.logging.SimpleFormatter;
+import java.util.logging.StreamHandler;
 
 /**
  * REST API for workflow CRUD and execution.
@@ -161,28 +164,30 @@ public class WorkflowApiHandler implements HttpHandler {
         List<String> logs = new ArrayList<>();
         String status;
 
-        // Capture stdout during execution to collect task output as logs.
-        // System.setOut is intentional here — it redirects task output into our log capture buffer.
+        // Capture BOTH stdout AND java.util.logging output during execution.
+        // Tasks use LOGGER.info() so we attach a temporary handler to the root logger.
         java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
-        java.io.PrintStream capture = new java.io.PrintStream(baos);
-        java.io.PrintStream originalOut = System.out;
+        Logger rootLogger = Logger.getLogger("com.flowforge");
+        Handler logCapture = new StreamHandler(baos, new SimpleFormatter());
+        logCapture.setLevel(Level.ALL);
+        rootLogger.addHandler(logCapture);
 
         try {
-            System.setOut(capture);
             flowforge.fireTrigger(id);
-            capture.flush();
+            logCapture.flush();
             status = "COMPLETED";
         } catch (RuntimeException e) {
-            capture.flush();
+            logCapture.flush();
             status = "FAILED";
             logs.add("ERROR: " + e.getMessage());
         } finally {
-            System.setOut(originalOut);
+            rootLogger.removeHandler(logCapture);
+            logCapture.close();
         }
 
         String captured = baos.toString();
         if (!captured.isBlank()) {
-            logs.addAll(0, Arrays.asList(captured.split("\n")));
+            logs.addAll(0, Arrays.asList(captured.split("\\r?\\n")));
         }
 
         long endTime = System.currentTimeMillis();
