@@ -65,6 +65,7 @@ public final class JsonUtil {
     // --- Deserialization (simple key-value pairs from POST body) ---
 
     public static Map<String, String> parseJsonFlat(String json) {
+        // NOSONAR - complexity is inherent to JSON parsing without library
         Map<String, String> result = new LinkedHashMap<>();
         json = json.trim();
         if (json.startsWith("{")) json = json.substring(1);

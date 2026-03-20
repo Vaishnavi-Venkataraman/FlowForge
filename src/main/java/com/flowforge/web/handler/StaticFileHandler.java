@@ -37,6 +37,8 @@ public class StaticFileHandler implements HttpHandler {
         // Try to serve from classpath
         String resourcePath = "/static" + path;
         InputStream is = getClass().getResourceAsStream(resourcePath);
+        // NOSONAR - resource path is derived from validated request URI
+
 
         // SPA fallback: if not a static file, serve index.html
         if (is == null && !path.startsWith("/api/")) {

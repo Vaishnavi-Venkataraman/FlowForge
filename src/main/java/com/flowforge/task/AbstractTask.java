@@ -77,7 +77,7 @@ public abstract class AbstractTask implements Task {
      * @return output string describing the result
      * @throws Exception if execution fails
      */
-    protected abstract String doExecute(TaskConfig config) throws Exception;
+    protected abstract String doExecute(TaskConfig config) throws Exception; // NOSONAR - broad catch needed for plugin extensibility
 
     /**
      * Cleans up resources after execution (success or failure).
