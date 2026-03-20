@@ -1,9 +1,13 @@
 package com.flowforge.service;
-import java.util.logging.Logger;
+
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.logging.Logger;
 
+/**
+ * Microservice that tracks workflow execution metrics.
+ */
 public class AnalyticsService {
 
     private static final Logger LOGGER = Logger.getLogger(AnalyticsService.class.getName());
@@ -47,7 +51,7 @@ public class AnalyticsService {
         LOGGER.info(() -> "  Failures: " + failureCount);
         double rate = totalExecutions.get() > 0
                 ? (successCount.get() * 100.0 / totalExecutions.get()) : 0;
-        LOGGER.info(String.format("  Success rate: %.1f%%%n", rate));
+        LOGGER.info(() -> String.format("  Success rate: %.1f%%", rate));
         LOGGER.info("  Per-workflow breakdown:");
         perWorkflowCount.forEach((name, count) ->
                 LOGGER.info(() -> "    " + name + ": " + count + " execution(s)"));
