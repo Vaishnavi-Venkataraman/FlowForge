@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<FindBugsFilter>
+
+    <!-- Exclude all inner record classes (Java 21 records crash older ASM) -->
+    <Match>
+        <Class name="~.*\$.*Record"/>
+    </Match>
+
+    <!-- Exclude thirdparty simulation package -->
+    <Match>
+        <Package name="com.flowforge.adapter.thirdparty"/>
+    </Match>
+
+    <!-- Exclude web layer (uses com.sun.net.httpserver which SpotBugs flags) -->
+    <Match>
+        <Package name="com.flowforge.web"/>
+    </Match>
+    <Match>
+        <Package name="com.flowforge.web.handler"/>
+    </Match>
+
+</FindBugsFilter>
