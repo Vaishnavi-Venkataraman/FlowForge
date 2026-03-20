@@ -1,10 +1,20 @@
 package com.flowforge.model;
+
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * Domain model representing a workflow definition.
+ *
+ * REFACTORING (Commit 14):
+ * - Removed public setStatus() — state transitions are now guarded methods
+ *   that enforce valid transitions (CREATED→RUNNING→COMPLETED/FAILED)
+ * - Invalid transitions throw IllegalStateException
+ * - All non-status fields are final
+ */
 public class WorkflowDefinition {
 
     private final String id;
@@ -13,7 +23,7 @@ public class WorkflowDefinition {
     private final List<TaskConfig> tasks;
     private final Instant createdAt;
     private final String executionStrategyName;
-    private volatile WorkflowStatus status;  // volatile for thread visibility
+    private volatile WorkflowStatus status;
 
     public WorkflowDefinition(String name, TriggerConfig trigger, List<TaskConfig> tasks) {
         this(name, trigger, tasks, "sequential");
@@ -21,13 +31,22 @@ public class WorkflowDefinition {
 
     public WorkflowDefinition(String name, TriggerConfig trigger, List<TaskConfig> tasks,
                                String executionStrategyName) {
+        this(null, name, trigger, tasks, executionStrategyName);
+    }
+
+    /**
+     * Full constructor — allows specifying an existing ID for persistence reload.
+     * If existingId is null, a new UUID is generated.
+     */
+    public WorkflowDefinition(String existingId, String name, TriggerConfig trigger,
+                               List<TaskConfig> tasks, String executionStrategyName) {
         if (name == null || name.isBlank()) {
             throw new IllegalArgumentException("Workflow name cannot be null or blank");
         }
         if (tasks == null || tasks.isEmpty()) {
             throw new IllegalArgumentException("Workflow must have at least one task");
         }
-        this.id = UUID.randomUUID().toString();
+        this.id = (existingId != null) ? existingId : UUID.randomUUID().toString();
         this.name = name;
         this.trigger = trigger;
         this.tasks = Collections.unmodifiableList(new ArrayList<>(tasks));
@@ -39,11 +58,6 @@ public class WorkflowDefinition {
 
     // --- Guarded state transitions ---
 
-    /**
-     * Transitions to RUNNING. Only valid from CREATED or PAUSED.
-     *
-     * @throws IllegalStateException if current state doesn't allow this transition
-     */
     public void markRunning() {
         if (!status.isExecutable()) {
             throw new IllegalStateException(
@@ -52,9 +66,6 @@ public class WorkflowDefinition {
         this.status = WorkflowStatus.RUNNING;
     }
 
-    /**
-     * Transitions to COMPLETED. Only valid from RUNNING.
-     */
     public void markCompleted() {
         if (status != WorkflowStatus.RUNNING) {
             throw new IllegalStateException(
@@ -63,9 +74,6 @@ public class WorkflowDefinition {
         this.status = WorkflowStatus.COMPLETED;
     }
 
-    /**
-     * Transitions to FAILED. Valid from RUNNING or CREATED (pipeline failure).
-     */
     public void markFailed() {
         if (status != WorkflowStatus.RUNNING && status != WorkflowStatus.CREATED) {
             throw new IllegalStateException(
@@ -74,9 +82,6 @@ public class WorkflowDefinition {
         this.status = WorkflowStatus.FAILED;
     }
 
-    /**
-     * Resets to CREATED for re-execution. Only from terminal states.
-     */
     public void reset() {
         if (!status.isTerminal()) {
             throw new IllegalStateException(
@@ -85,7 +90,7 @@ public class WorkflowDefinition {
         this.status = WorkflowStatus.CREATED;
     }
 
-    // --- Getters (no setStatus!) ---
+    // --- Getters ---
 
     public String getId() { return id; }
     public String getName() { return name; }
@@ -95,17 +100,10 @@ public class WorkflowDefinition {
     public WorkflowStatus getStatus() { return status; }
     public String getExecutionStrategyName() { return executionStrategyName; }
 
-    /**
-     * Convenience: returns trigger type name without breaking Law of Demeter.
-     * Callers use this instead of getTrigger().getType().name().
-     */
     public String getTriggerTypeName() {
         return trigger != null ? trigger.getType().name() : "NONE";
     }
 
-    /**
-     * Convenience: returns trigger value without chaining.
-     */
     public String getTriggerValue() {
         return trigger != null ? trigger.getValue() : "";
     }

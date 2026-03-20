@@ -9,29 +9,34 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Fluent builder for constructing WorkflowDefinition objects.
+ */
 public class WorkflowBuilder {
 
+    private String existingId;
     private String name;
     private TriggerConfig trigger;
     private final List<TaskConfig> tasks = new ArrayList<>();
     private String strategyName = "sequential";
 
-    private WorkflowBuilder() {
-        // Use static factory method
-    }
+    private WorkflowBuilder() {}
 
-    /**
-     * Entry point for building a workflow.
-     */
     public static WorkflowBuilder create() {
         return new WorkflowBuilder();
     }
 
-    /**
-     * Sets the workflow name (required).
-     */
     public WorkflowBuilder name(String name) {
         this.name = name;
+        return this;
+    }
+
+    /**
+     * Sets a pre-existing ID (for reloading persisted workflows).
+     * If not called, a new UUID is generated at build time.
+     */
+    public WorkflowBuilder withId(String id) {
+        this.existingId = id;
         return this;
     }
 
@@ -64,59 +69,35 @@ public class WorkflowBuilder {
 
     // --- Task methods ---
 
-    /**
-     * Adds a generic task with custom parameters.
-     */
     public WorkflowBuilder addTask(String name, String type, Map<String, String> params) {
         tasks.add(new TaskConfig(name, type, params));
         return this;
     }
 
-    /**
-     * Convenience: add an HTTP task.
-     */
     public WorkflowBuilder addHttpTask(String name, String url, String method) {
         return addTask(name, "http", Map.of("url", url, "method", method));
     }
 
-    /**
-     * Convenience: add an HTTP GET task.
-     */
     public WorkflowBuilder addHttpGet(String name, String url) {
         return addHttpTask(name, url, "GET");
     }
 
-    /**
-     * Convenience: add an HTTP POST task.
-     */
     public WorkflowBuilder addHttpPost(String name, String url) {
         return addHttpTask(name, url, "POST");
     }
 
-    /**
-     * Convenience: add a data transformation task.
-     */
     public WorkflowBuilder addTransformTask(String name, String input, String operation) {
         return addTask(name, "transform", Map.of("input", input, "operation", operation));
     }
 
-    /**
-     * Convenience: add an email task.
-     */
     public WorkflowBuilder addEmailTask(String name, String to, String subject) {
         return addTask(name, "email", Map.of("to", to, "subject", subject));
     }
 
-    /**
-     * Convenience: add a database task.
-     */
     public WorkflowBuilder addDatabaseTask(String name, String query) {
         return addTask(name, "database", Map.of("query", query));
     }
 
-    /**
-     * Convenience: add a delay task.
-     */
     public WorkflowBuilder addDelayTask(String name, int seconds) {
         return addTask(name, "delay", Map.of("seconds", String.valueOf(seconds)));
     }
@@ -140,12 +121,6 @@ public class WorkflowBuilder {
 
     // --- Build ---
 
-    /**
-     * Validates and builds the WorkflowDefinition.
-     *
-     * @return immutable WorkflowDefinition
-     * @throws IllegalStateException if required fields are missing
-     */
     public WorkflowDefinition build() {
         List<String> errors = new ArrayList<>();
 
@@ -166,6 +141,6 @@ public class WorkflowBuilder {
             );
         }
 
-        return new WorkflowDefinition(name, trigger, tasks, strategyName);
+        return new WorkflowDefinition(existingId, name, trigger, tasks, strategyName);
     }
 }

@@ -48,10 +48,10 @@ public class WorkflowApiHandler implements HttpHandler {
         for (String owner : workflowStore.getAllOwners()) {
             for (StoredWorkflow stored : workflowStore.getWorkflows(owner)) {
                 try {
-                    WorkflowDefinition wfDef = WorkflowBuildHelper.buildWorkflow(
+                    WorkflowDefinition wfDef = WorkflowBuildHelper.buildWorkflow(stored.id(), 
                             stored.name(), stored.triggerType(), stored.triggerValue(),
                             stored.strategy(), stored.tasks());
-                    flowforge.registerWorkflowWithId(stored.id(), wfDef);
+                    flowforge.registerWorkflow(wfDef);
                     count++;
                 } catch (Exception e) {
                     LOGGER.log(Level.WARNING, "Reload failed for workflow: {0}", stored.name());
