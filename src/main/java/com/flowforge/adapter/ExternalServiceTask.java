@@ -33,8 +33,7 @@ public class ExternalServiceTask extends AbstractTask {
     }
 
     @Override
-    protected String doExecute(TaskConfig config) throws Exception {
-        // NOSONAR - broad catch needed for plugin extensibility
+    protected String doExecute(TaskConfig config) throws Exception { // NOSONAR - broad catch needed for plugin extensibility
         String serviceId = config.getRequiredParameter(KEY_SERVICE_ID);
         String operation = config.getRequiredParameter(KEY_OPERATION);
 
