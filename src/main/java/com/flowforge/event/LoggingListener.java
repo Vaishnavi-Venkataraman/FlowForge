@@ -19,7 +19,7 @@ public class LoggingListener implements EventListener {
                 + " [" + event.getType() + "] "
                 + event.getMessage();
         logs.add(entry);
-        LOGGER.info("LOG: " + entry);
+        LOGGER.info(() -> "LOG: " + entry);
     }
 
     public List<String> getLogs() {

@@ -17,7 +17,7 @@ public class AuditService {
 
     public AuditService(ServiceBus bus) {
         bus.subscribe("audit", this::handleAuditEvent);
-        LOGGER.info("[" + SERVICE_NAME + "] Started. Listening on: audit");
+        LOGGER.info(() -> "[" + SERVICE_NAME + "] Started. Listening on: audit");
     }
 
     private void handleAuditEvent(ServiceMessage message) {
@@ -26,13 +26,13 @@ public class AuditService {
                 + " | from=" + message.getSourceService()
                 + " | " + message.getPayload();
         auditLog.add(entry);
-        LOGGER.info("[" + SERVICE_NAME + "] " + entry);
+        LOGGER.info(() -> "[" + SERVICE_NAME + "] " + entry);
     }
 
     public void printAuditLog() {
-        LOGGER.info("=== Audit Log (" + auditLog.size() + " entries) ===");
+        LOGGER.info(() -> "=== Audit Log (" + auditLog.size() + " entries) ===");
         for (String entry : auditLog) {
-            LOGGER.info("  " + entry);
+            LOGGER.info(() -> "  " + entry);
         }
     }
 

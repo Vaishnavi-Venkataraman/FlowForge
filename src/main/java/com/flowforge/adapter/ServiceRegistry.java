@@ -14,7 +14,7 @@ public class ServiceRegistry {
             throw new IllegalArgumentException("Service cannot be null");
         }
         services.put(service.getServiceId(), service);
-        LOGGER.info("[ServiceRegistry] Registered: " + service.getServiceName()
+        LOGGER.info(() -> "[ServiceRegistry] Registered: " + service.getServiceName()
                 + " [" + service.getServiceId() + ", protocol=" + service.getProtocol() + "]");
     }
 
@@ -48,7 +48,7 @@ public class ServiceRegistry {
                 // health check failed
             }
             String status = healthy ? "HEALTHY" : "UNHEALTHY";
-            LOGGER.info("  " + service.getServiceName()
+            LOGGER.info(() -> "  " + service.getServiceName()
                     + " [" + service.getProtocol() + "] — " + status);
         }
     }

@@ -23,7 +23,7 @@ public class SequentialStrategy implements ExecutionStrategy {
 
         for (TaskConfig config : taskConfigs) {
             Task task = factory.createTask(config);
-            LOGGER.info("  [sequential] Executing: " + task.getName());
+            LOGGER.info(() -> "  [sequential] Executing: " + task.getName());
 
             TaskResult result = task.execute(config);
             results.put(task.getName(), result);

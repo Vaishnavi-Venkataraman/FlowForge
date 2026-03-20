@@ -28,7 +28,7 @@ public class EmailTask extends AbstractTask {
     protected String doExecute(TaskConfig config) {
         String to = config.getRequiredParameter("to");
         String subject = config.getRequiredParameter("subject");
-        LOGGER.info("    Sending email to " + to + ": " + subject);
+        LOGGER.info(() -> "    Sending email to " + to + ": " + subject);
         return "Email sent to " + to;
     }
 }

@@ -13,7 +13,7 @@ public class TriggerService {
 
     public TriggerService(ServiceBus bus) {
         this.bus = bus;
-        LOGGER.info("[" + SERVICE_NAME + "] Started. Publishes to: execution.requests, notifications");
+        LOGGER.info(() -> "[" + SERVICE_NAME + "] Started. Publishes to: execution.requests, notifications");
     }
 
     /**
@@ -24,7 +24,7 @@ public class TriggerService {
                                  String triggerType, String triggerValue) {
         registeredTriggers.put(workflowId,
                 new WorkflowTriggerInfo(workflowId, workflowName, triggerType, triggerValue));
-        LOGGER.info("[" + SERVICE_NAME + "] Registered trigger: "
+        LOGGER.info(() -> "[" + SERVICE_NAME + "] Registered trigger: "
                 + triggerType + "(" + triggerValue + ") → " + workflowName);
     }
 
@@ -35,11 +35,11 @@ public class TriggerService {
     public void fireTrigger(String workflowId) {
         WorkflowTriggerInfo info = registeredTriggers.get(workflowId);
         if (info == null) {
-            LOGGER.info("[" + SERVICE_NAME + "] Unknown workflow ID: " + workflowId);
+            LOGGER.info(() -> "[" + SERVICE_NAME + "] Unknown workflow ID: " + workflowId);
             return;
         }
 
-        LOGGER.info("[" + SERVICE_NAME + "] Trigger fired: "
+        LOGGER.info(() -> "[" + SERVICE_NAME + "] Trigger fired: "
                 + info.triggerType + "(" + info.triggerValue + ") → " + info.workflowName);
 
                 // Notify about trigger firing
@@ -66,12 +66,12 @@ public class TriggerService {
     public void simulateWebhook(String path) {
         for (WorkflowTriggerInfo info : registeredTriggers.values()) {
             if ("WEBHOOK".equals(info.triggerType) && info.triggerValue.equals(path)) {
-                LOGGER.info("[" + SERVICE_NAME + "] Webhook matched: " + path);
+                LOGGER.info(() -> "[" + SERVICE_NAME + "] Webhook matched: " + path);
                 fireTrigger(info.workflowId);
                 return;
             }
         }
-        LOGGER.info("[" + SERVICE_NAME + "] No workflow registered for webhook: " + path);
+        LOGGER.info(() -> "[" + SERVICE_NAME + "] No workflow registered for webhook: " + path);
     }
 
     private record WorkflowTriggerInfo(String workflowId, String workflowName,

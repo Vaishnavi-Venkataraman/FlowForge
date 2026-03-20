@@ -43,7 +43,7 @@ public class ParallelStrategy implements ExecutionStrategy {
                 executor.submit(() -> {
                     try {
                         Task task = factory.createTask(config);
-                        LOGGER.info("[parallel] Executing: " + task.getName()
+                        LOGGER.info(() -> "[parallel] Executing: " + task.getName()
                                 + " on " + Thread.currentThread().getName());
                         TaskResult result = task.execute(config);
                         results.put(task.getName(), result);

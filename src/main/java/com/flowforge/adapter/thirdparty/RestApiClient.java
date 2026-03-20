@@ -18,7 +18,7 @@ public class RestApiClient {
      */
     public RestResponse sendRequest(String method, String path, Map<String, String> queryParams) {
         String fullUrl = baseUrl + path;
-        LOGGER.info("      [RestApiClient] " + method + " " + fullUrl);
+        LOGGER.info(() -> "      [RestApiClient] " + method + " " + fullUrl);
 
         // Simulate response
         String responseBody = "{\"status\":\"ok\",\"data\":[{\"id\":1},{\"id\":2}]}";
@@ -26,7 +26,7 @@ public class RestApiClient {
     }
 
     public boolean ping() {
-        LOGGER.info("      [RestApiClient] PING " + baseUrl + "/health");
+        LOGGER.info(() -> "      [RestApiClient] PING " + baseUrl + "/health");
         return true;
     }
 

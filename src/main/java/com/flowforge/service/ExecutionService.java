@@ -24,14 +24,14 @@ public class ExecutionService {
         // Subscribe to execution requests from other services
         bus.subscribe(CHANNEL_REQUESTS, this::handleExecutionRequest);
 
-        LOGGER.info("[" + SERVICE_NAME + "] Started. Listening on: " + CHANNEL_REQUESTS);
+        LOGGER.info(() -> "[" + SERVICE_NAME + "] Started. Listening on: " + CHANNEL_REQUESTS);
     }
 
     private void handleExecutionRequest(ServiceMessage message) {
         String workflowId = message.getPayloadValue(KEY_WORKFLOW_ID, null);
         String workflowName = message.getPayloadValue(KEY_WORKFLOW_NAME, "unknown");
 
-        LOGGER.info("[" + SERVICE_NAME + "] Received execution request: " + workflowName);
+        LOGGER.info(() -> "[" + SERVICE_NAME + "] Received execution request: " + workflowName);
 
         if (workflowId == null) {
             bus.publish("execution.errors", ServiceMessage.of("EXECUTION_ERROR", SERVICE_NAME,

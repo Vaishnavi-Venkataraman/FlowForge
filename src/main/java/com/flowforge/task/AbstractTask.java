@@ -50,7 +50,7 @@ public abstract class AbstractTask implements Task {
                 cleanup(config);
             } catch (Exception cleanupEx) {
                 // Log but don't mask the original exception
-                LOGGER.warning("Cleanup failed for task " + name + ": " + cleanupEx.getMessage());
+                LOGGER.warning(() -> "Cleanup failed for task " + name + ": " + cleanupEx.getMessage());
             }
             return TaskResult.failure("Execution failed: " + e.getMessage(), start);
         }

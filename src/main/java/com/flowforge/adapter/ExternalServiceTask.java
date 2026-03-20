@@ -44,7 +44,7 @@ public class ExternalServiceTask extends AbstractTask {
 
         ExternalService service = serviceRegistry.getService(serviceId);
 
-        LOGGER.info("    Calling " + service.getServiceName()
+        LOGGER.info(() -> "    Calling " + service.getServiceName()
                 + " [" + service.getProtocol() + "] — operation: " + operation);
 
         ServiceResponse response = service.execute(operation, serviceParams);

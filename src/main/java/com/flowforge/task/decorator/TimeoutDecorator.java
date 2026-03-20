@@ -39,7 +39,7 @@ public class TimeoutDecorator extends TaskDecorator {
                 return future.get(timeoutMs, TimeUnit.MILLISECONDS);
             } catch (TimeoutException e) {
                 future.cancel(true);
-                LOGGER.warning("Task " + getName() + " TIMED OUT after " + timeoutMs + "ms");
+                LOGGER.warning(() -> "Task " + getName() + " TIMED OUT after " + timeoutMs + "ms");
                 return TaskResult.failure("Task timed out after " + timeoutMs + "ms", Instant.now());
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();

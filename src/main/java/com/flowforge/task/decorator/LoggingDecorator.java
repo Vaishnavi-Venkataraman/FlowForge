@@ -23,7 +23,7 @@ public class LoggingDecorator extends TaskDecorator {
 
     @Override
     public TaskResult execute(TaskConfig config) {
-        LOGGER.info("    [LoggingDecorator] >>> START task: " + getName()
+        LOGGER.info(() -> "    [LoggingDecorator] >>> START task: " + getName()
                 + " [type=" + getType() + "]");
         long startMs = System.currentTimeMillis();
 
@@ -31,7 +31,7 @@ public class LoggingDecorator extends TaskDecorator {
 
         long durationMs = System.currentTimeMillis() - startMs;
         String status = result.isSuccess() ? "SUCCESS" : "FAILED";
-        LOGGER.info("    [LoggingDecorator] <<< END task: " + getName()
+        LOGGER.info(() -> "    [LoggingDecorator] <<< END task: " + getName()
                 + " [" + status + ", " + durationMs + "ms]");
 
         return result;

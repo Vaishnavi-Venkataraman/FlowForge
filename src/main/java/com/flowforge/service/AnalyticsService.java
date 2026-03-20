@@ -16,7 +16,7 @@ public class AnalyticsService {
 
     public AnalyticsService(ServiceBus bus) {
         bus.subscribe("analytics", this::handleAnalyticsEvent);
-        LOGGER.info("[" + SERVICE_NAME + "] Started. Listening on: analytics");
+        LOGGER.info(() -> "[" + SERVICE_NAME + "] Started. Listening on: analytics");
     }
 
     private void handleAnalyticsEvent(ServiceMessage message) {
@@ -29,27 +29,27 @@ public class AnalyticsService {
         switch (action) {
             case "EXECUTION_COMPLETE" -> {
                 successCount.incrementAndGet();
-                LOGGER.info("[" + SERVICE_NAME + "] Recorded: SUCCESS for " + workflowName);
+                LOGGER.info(() -> "[" + SERVICE_NAME + "] Recorded: SUCCESS for " + workflowName);
             }
             case "EXECUTION_FAILED" -> {
                 failureCount.incrementAndGet();
-                LOGGER.info("[" + SERVICE_NAME + "] Recorded: FAILURE for " + workflowName
+                LOGGER.info(() -> "[" + SERVICE_NAME + "] Recorded: FAILURE for " + workflowName
                         + " — " + message.getPayloadValue("error", ""));
             }
-            default -> LOGGER.info("[" + SERVICE_NAME + "] Recorded: " + action);
+            default -> LOGGER.info(() -> "[" + SERVICE_NAME + "] Recorded: " + action);
         }
     }
 
     public void printDashboard() {
         LOGGER.info("=== Analytics Dashboard ===");
-        LOGGER.info("  Total executions: " + totalExecutions);
-        LOGGER.info("  Successes: " + successCount);
-        LOGGER.info("  Failures: " + failureCount);
+        LOGGER.info(() -> "  Total executions: " + totalExecutions);
+        LOGGER.info(() -> "  Successes: " + successCount);
+        LOGGER.info(() -> "  Failures: " + failureCount);
         double rate = totalExecutions.get() > 0
                 ? (successCount.get() * 100.0 / totalExecutions.get()) : 0;
         LOGGER.info(String.format("  Success rate: %.1f%%%n", rate));
         LOGGER.info("  Per-workflow breakdown:");
         perWorkflowCount.forEach((name, count) ->
-                LOGGER.info("    " + name + ": " + count + " execution(s)"));
+                LOGGER.info(() -> "    " + name + ": " + count + " execution(s)"));
     }
 }

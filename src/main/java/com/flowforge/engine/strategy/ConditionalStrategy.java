@@ -40,7 +40,7 @@ public class ConditionalStrategy implements ExecutionStrategy {
 
         for (TaskConfig config : taskConfigs) {
             if (!condition.test(config)) {
-                LOGGER.info("  [conditional] SKIPPED: " + config.getName()
+                LOGGER.info(() -> "  [conditional] SKIPPED: " + config.getName()
                         + " (condition not met: " + conditionDescription + ")");
                 results.put(config.getName(),
                         TaskResult.success("Skipped - condition not met", java.time.Instant.now()));
@@ -48,7 +48,7 @@ public class ConditionalStrategy implements ExecutionStrategy {
             }
 
             Task task = factory.createTask(config);
-            LOGGER.info("  [conditional] Executing: " + task.getName());
+            LOGGER.info(() -> "  [conditional] Executing: " + task.getName());
 
             TaskResult result = task.execute(config);
             results.put(task.getName(), result);

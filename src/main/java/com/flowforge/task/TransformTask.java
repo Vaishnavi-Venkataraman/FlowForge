@@ -23,7 +23,7 @@ public class TransformTask extends AbstractTask {
     protected String doExecute(TaskConfig config) {
         String input = config.getRequiredParameter("input");
         String operation = config.getParameter("operation", "identity");
-        LOGGER.info("    Transform: " + operation + " on " + input);
+        LOGGER.info(() -> "    Transform: " + operation + " on " + input);
         return "Transformed(" + operation + "): " + input;
     }
 }

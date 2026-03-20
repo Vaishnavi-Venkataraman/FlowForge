@@ -1,5 +1,7 @@
 package com.flowforge;
+
 import java.util.logging.Logger;
+
 import com.flowforge.plugin.builtin.FileOperationsPlugin;
 import com.flowforge.web.UserStore;
 import com.flowforge.web.WebServer;
@@ -9,11 +11,13 @@ import com.flowforge.web.handler.StaticFileHandler;
 import com.flowforge.web.handler.WorkflowApiHandler;
 
 public class Main {
+
     private static final Logger LOGGER = Logger.getLogger(Main.class.getName());
     private static final int PORT = 8080;
     private static final String BASE_URL = "http://localhost:" + PORT;
 
     public static void main(String[] args) throws Exception {
+
         LOGGER.info("========== FlowForge ==========");
 
         // Core engine
@@ -30,7 +34,8 @@ public class Main {
         WorkflowStore workflowStore = new WorkflowStore();
 
         // API handlers
-        WorkflowApiHandler workflowHandler = new WorkflowApiHandler(userStore, workflowStore, flowforge);
+        WorkflowApiHandler workflowHandler =
+                new WorkflowApiHandler(userStore, workflowStore, flowforge);
         workflowHandler.reloadPersistedWorkflows();
 
         // Web server
@@ -40,29 +45,30 @@ public class Main {
         server.registerHandler("/", new StaticFileHandler());
         server.start();
 
-        LOGGER.info("  +------------------------------------------+");
+        LOGGER.info(() -> "  +------------------------------------------+");
         LOGGER.info("  |  FlowForge is running!                   |");
-        LOGGER.info("  |  Open: " + BASE_URL + "              |");
+        LOGGER.info(() -> "  |  Open: " + BASE_URL + "              |");
         LOGGER.info("  |  Data saved in: data/                    |");
-        LOGGER.info("  |  Press Ctrl+C to stop                    |");
-        LOGGER.info("  +------------------------------------------+");
+        LOGGER.info(() -> "  |  Press Ctrl+C to stop                    |");
+        LOGGER.info(() -> "  +------------------------------------------+");
 
         // Auto-open browser
-            try {
-        String os = System.getProperty("os.name").toLowerCase();
+        try {
+            String os = System.getProperty("os.name").toLowerCase();
 
-        if (os.contains("win")) {
-            new ProcessBuilder("cmd", "/c", "start", BASE_URL).start();
-        } else if (os.contains("mac")) {
-            new ProcessBuilder("open", BASE_URL).start();
-        } else {
-            new ProcessBuilder("xdg-open", BASE_URL).start();
+            if (os.contains("win")) {
+                new ProcessBuilder("cmd", "/c", "start", BASE_URL).start();
+            } else if (os.contains("mac")) {
+                new ProcessBuilder("open", BASE_URL).start();
+            } else {
+                new ProcessBuilder("xdg-open", BASE_URL).start();
+            }
+
+        } catch (Exception ignored) {
+            // Browser auto-open is best-effort; failure is not critical
         }
 
-    } catch (Exception ignored) {
-        // Browser auto-open is best-effort; failure is not critical
-    }
-
+        // Keep server running
         Thread.currentThread().join();
     }
 }

@@ -1,5 +1,7 @@
 package com.flowforge.web.handler;
+
 import java.util.logging.Logger;
+
 import com.flowforge.model.WorkflowDefinition;
 import com.flowforge.web.JsonUtil;
 import com.flowforge.web.UserStore;
@@ -17,7 +19,9 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * REST API for workflow CRUD and execution.
  */
 public class WorkflowApiHandler implements HttpHandler {
+
     private static final Logger LOGGER = Logger.getLogger(WorkflowApiHandler.class.getName());
+
     private static final String KEY_ERROR = "error";
     private static final String KEY_SUCCESS = "success";
     private static final String ERROR_NOT_FOUND = "Workflow not found";
@@ -34,7 +38,9 @@ public class WorkflowApiHandler implements HttpHandler {
     }
 
     public void reloadPersistedWorkflows() {
+
         int count = 0;
+
         for (String owner : workflowStore.getAllOwners()) {
             for (StoredWorkflow stored : workflowStore.getWorkflows(owner)) {
                 try {
@@ -45,15 +51,19 @@ public class WorkflowApiHandler implements HttpHandler {
                             stored.strategy(),
                             stored.tasks()
                     );
+
                     flowforge.registerWorkflowWithId(stored.id(), wfDef);
                     count++;
+
                 } catch (Exception e) {
-                    LOGGER.warning("[Reload] Failed: " + stored.name() + " — " + e.getMessage());
+                    LOGGER.warning(() -> "[Reload] Failed: " + stored.name() + " — " + e.getMessage());
                 }
             }
         }
+
         if (count > 0) {
-            LOGGER.info("[WorkflowApi] Reloaded " + count + " workflows from disk");
+            final int finalCount = count;
+            LOGGER.info(() -> "[WorkflowApi] Reloaded " + finalCount + " workflows from disk");
         }
     }
 
@@ -237,10 +247,13 @@ public class WorkflowApiHandler implements HttpHandler {
 
         workflowStore.addExecution(username, id, execRecord);
 
-        LOGGER.info(
+        final String finalStatus = status;
+        final long duration = endTime - startTime;
+
+        LOGGER.info(() ->
                 "[Execute] " + wf.name() +
-                " -> " + status +
-                " (" + (endTime - startTime) + "ms)"
+                " -> " + finalStatus +
+                " (" + duration + "ms)"
         );
 
         HttpHelper.sendJson(exchange, 200, toExecutionMap(execRecord));

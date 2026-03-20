@@ -13,7 +13,7 @@ public class NotificationService {
 
     public NotificationService(ServiceBus bus) {
         bus.subscribe("notifications", this::handleNotification);
-        LOGGER.info("[" + SERVICE_NAME + "] Started. Listening on: notifications");
+        LOGGER.info(() -> "[" + SERVICE_NAME + "] Started. Listening on: notifications");
     }
 
     private void handleNotification(ServiceMessage message) {
@@ -36,7 +36,7 @@ public class NotificationService {
         };
 
         sentNotifications.add(notification);
-        LOGGER.info("[" + SERVICE_NAME + "] " + notification);
+        LOGGER.info(() -> "[" + SERVICE_NAME + "] " + notification);
     }
 
     public List<String> getSentNotifications() {
@@ -44,9 +44,9 @@ public class NotificationService {
     }
 
     public void printSummary() {
-        LOGGER.info("=== Notification Summary (" + sentNotifications.size() + " sent) ===");
+        LOGGER.info(() -> "=== Notification Summary (" + sentNotifications.size() + " sent) ===");
         for (String n : sentNotifications) {
-            LOGGER.info("  " + n);
+            LOGGER.info(() -> "  " + n);
         }
     }
 }

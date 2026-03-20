@@ -22,7 +22,7 @@ public class WebServer {
     public void start() {
         server.setExecutor(java.util.concurrent.Executors.newFixedThreadPool(4));
         server.start();
-        LOGGER.info("[WebServer] Started on http://localhost:" + port);
+        LOGGER.info(() -> "[WebServer] Started on http://localhost:" + port);
     }
 
     public void stop() {

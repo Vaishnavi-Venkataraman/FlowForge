@@ -51,7 +51,7 @@ public class FileOperationsPlugin implements Plugin {
             String host = config.getRequiredParameter("host");
             String file = config.getParameter("file", "data.csv");
             String direction = config.getParameter("direction", "upload");
-            LOGGER.info("    FTP " + direction + ": " + file + " → " + host);
+            LOGGER.info(() -> "    FTP " + direction + ": " + file + " → " + host);
             return "FTP " + direction + " of " + file + " to " + host;
         }
     }
@@ -72,7 +72,7 @@ public class FileOperationsPlugin implements Plugin {
         protected String doExecute(TaskConfig config) {
             String src = config.getRequiredParameter("source");
             String dst = config.getRequiredParameter("destination");
-            LOGGER.info("    Copying " + src + " → " + dst);
+            LOGGER.info(() -> "    Copying " + src + " → " + dst);
             return "Copied " + src + " to " + dst;
         }
     }
@@ -91,7 +91,7 @@ public class FileOperationsPlugin implements Plugin {
         @Override
         protected String doExecute(TaskConfig config) {
             String path = config.getRequiredParameter("path");
-            LOGGER.info("    Deleting file: " + path);
+            LOGGER.info(() -> "    Deleting file: " + path);
             return "Deleted: " + path;
         }
     }

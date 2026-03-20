@@ -155,7 +155,7 @@ public class UserStore {
                     users.put(parts[0], new UserRecord(parts[0], parts[1], parts[2], Long.parseLong(parts[3])));
                 }
             }
-            LOGGER.info("Loaded " + users.size() + " users from disk");
+            LOGGER.info(() -> "Loaded " + users.size() + " users from disk");
         } catch (IOException e) {
             LOGGER.log(Level.SEVERE, "Failed to load users", e);
         }

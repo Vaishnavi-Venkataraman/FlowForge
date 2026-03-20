@@ -14,8 +14,8 @@ public class SoapServiceClient {
      * Completely different API — XML envelope in, XML envelope out.
      */
     public SoapEnvelope callOperation(String operationName, String xmlPayload) {
-        LOGGER.info("      [SoapClient] SOAP call: " + operationName + " → " + wsdlUrl);
-        LOGGER.info("      [SoapClient] Payload: " + xmlPayload);
+        LOGGER.info(() -> "      [SoapClient] SOAP call: " + operationName + " → " + wsdlUrl);
+        LOGGER.info(() -> "      [SoapClient] Payload: " + xmlPayload);
 
         // Simulate SOAP response
         String responseXml = "<soap:Envelope>"
@@ -31,7 +31,7 @@ public class SoapServiceClient {
     }
 
     public boolean isAvailable() {
-        LOGGER.info("      [SoapClient] Checking WSDL: " + wsdlUrl);
+        LOGGER.info(() -> "      [SoapClient] Checking WSDL: " + wsdlUrl);
         return true;
     }
 

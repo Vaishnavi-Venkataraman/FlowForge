@@ -28,7 +28,7 @@ public class ServiceBus {
                 try {
                     handler.accept(message);
                 } catch (Exception e) {
-                    LOGGER.warning("[ServiceBus] Handler error on channel '"
+                    LOGGER.warning(() -> "[ServiceBus] Handler error on channel '"
                             + channel + "': " + e.getMessage());
                     // Fault isolation: one handler failing doesn't stop others
                 }

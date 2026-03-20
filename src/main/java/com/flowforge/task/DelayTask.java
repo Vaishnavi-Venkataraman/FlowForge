@@ -34,7 +34,7 @@ public class DelayTask extends AbstractTask {
     @Override
     protected String doExecute(TaskConfig config) throws InterruptedException {
         int seconds = Integer.parseInt(config.getParameter("seconds", "1"));
-        LOGGER.info("    Waiting " + seconds + " seconds...");
+        LOGGER.info(() -> "    Waiting " + seconds + " seconds...");
         Thread.sleep(seconds * 1000L);
         return "Delay of " + seconds + "s completed";
     }

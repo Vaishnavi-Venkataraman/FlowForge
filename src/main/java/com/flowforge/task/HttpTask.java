@@ -25,7 +25,7 @@ public class HttpTask extends AbstractTask {
     protected String doExecute(TaskConfig config) {
         String url = config.getRequiredParameter("url");
         String method = config.getParameter("method", "GET");
-        LOGGER.info("    HTTP " + method + " " + url);
+        LOGGER.info(() -> "    HTTP " + method + " " + url);
         return "HTTP " + method + " " + url + " → 200 OK";
     }
 }

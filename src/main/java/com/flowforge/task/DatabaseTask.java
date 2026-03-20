@@ -29,7 +29,7 @@ public class DatabaseTask extends AbstractTask {
     @Override
     protected String doExecute(TaskConfig config) {
         String query = config.getRequiredParameter("query");
-        LOGGER.info("    Executing query: " + query);
+        LOGGER.info(() -> "    Executing query: " + query);
         return "Query executed, 5 rows affected";
     }
 
