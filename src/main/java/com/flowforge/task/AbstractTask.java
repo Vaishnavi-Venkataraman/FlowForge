@@ -1,5 +1,5 @@
 package com.flowforge.task;
-
+import java.util.logging.Logger;
 import com.flowforge.model.TaskConfig;
 import com.flowforge.model.TaskResult;
 
@@ -8,6 +8,7 @@ import java.time.Instant;
 public abstract class AbstractTask implements Task {
 
     private final String name;
+    private static final Logger LOGGER = Logger.getLogger(AbstractTask.class.getName());
 
     protected AbstractTask(String name) {
         if (name == null || name.isBlank()) {
@@ -49,7 +50,7 @@ public abstract class AbstractTask implements Task {
                 cleanup(config);
             } catch (Exception cleanupEx) {
                 // Log but don't mask the original exception
-                System.err.println("Cleanup failed for task " + name + ": " + cleanupEx.getMessage());
+                LOGGER.warning("Cleanup failed for task " + name + ": " + cleanupEx.getMessage());
             }
             return TaskResult.failure("Execution failed: " + e.getMessage(), start);
         }

@@ -1,12 +1,12 @@
 package com.flowforge.adapter.thirdparty;
-
+import java.util.logging.Logger;
 import java.util.Map;
 
 /**
  * Simulated third-party REST API client.
  */
 public class RestApiClient {
-
+    private static final Logger LOGGER = Logger.getLogger(RestApiClient.class.getName());
     private final String baseUrl;
 
     public RestApiClient(String baseUrl) {
@@ -18,7 +18,7 @@ public class RestApiClient {
      */
     public RestResponse sendRequest(String method, String path, Map<String, String> queryParams) {
         String fullUrl = baseUrl + path;
-        System.out.println("      [RestApiClient] " + method + " " + fullUrl);
+        LOGGER.info("      [RestApiClient] " + method + " " + fullUrl);
 
         // Simulate response
         String responseBody = "{\"status\":\"ok\",\"data\":[{\"id\":1},{\"id\":2}]}";
@@ -26,7 +26,7 @@ public class RestApiClient {
     }
 
     public boolean ping() {
-        System.out.println("      [RestApiClient] PING " + baseUrl + "/health");
+        LOGGER.info("      [RestApiClient] PING " + baseUrl + "/health");
         return true;
     }
 

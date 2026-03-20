@@ -1,17 +1,13 @@
 package com.flowforge.event;
-
+import java.util.logging.Logger;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-/**
- * Listens to all events and maintains a structured log.
- * WHY: Replaces the inline log() method and System.out.println calls
- */
 public class LoggingListener implements EventListener {
-
+    private static final Logger LOGGER = Logger.getLogger(LoggingListener.class.getName());
     private static final DateTimeFormatter FORMATTER =
             DateTimeFormatter.ofPattern("HH:mm:ss.SSS").withZone(ZoneId.systemDefault());
 
@@ -23,7 +19,7 @@ public class LoggingListener implements EventListener {
                 + " [" + event.getType() + "] "
                 + event.getMessage();
         logs.add(entry);
-        System.out.println("LOG: " + entry);
+        LOGGER.info("LOG: " + entry);
     }
 
     public List<String> getLogs() {

@@ -1,5 +1,5 @@
 package com.flowforge.task;
-
+import java.util.logging.Logger;
 import com.flowforge.model.TaskConfig;
 
 /**
@@ -8,6 +8,7 @@ import com.flowforge.model.TaskConfig;
  */
 public class DelayTask extends AbstractTask {
 
+    private static final Logger LOGGER = Logger.getLogger(DelayTask.class.getName());
     public DelayTask(String name) {
         super(name);
     }
@@ -33,7 +34,7 @@ public class DelayTask extends AbstractTask {
     @Override
     protected String doExecute(TaskConfig config) throws InterruptedException {
         int seconds = Integer.parseInt(config.getParameter("seconds", "1"));
-        System.out.println("    Waiting " + seconds + " seconds...");
+        LOGGER.info("    Waiting " + seconds + " seconds...");
         Thread.sleep(seconds * 1000L);
         return "Delay of " + seconds + "s completed";
     }

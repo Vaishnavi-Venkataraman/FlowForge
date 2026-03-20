@@ -1,5 +1,5 @@
 package com.flowforge.task;
-
+import java.util.logging.Logger;
 import com.flowforge.model.TaskConfig;
 
 /**
@@ -8,6 +8,7 @@ import com.flowforge.model.TaskConfig;
  */
 public class EmailTask extends AbstractTask {
 
+    private static final Logger LOGGER = Logger.getLogger(EmailTask.class.getName());
     public EmailTask(String name) {
         super(name);
     }
@@ -27,7 +28,7 @@ public class EmailTask extends AbstractTask {
     protected String doExecute(TaskConfig config) {
         String to = config.getRequiredParameter("to");
         String subject = config.getRequiredParameter("subject");
-        System.out.println("    Sending email to " + to + ": " + subject);
+        LOGGER.info("    Sending email to " + to + ": " + subject);
         return "Email sent to " + to;
     }
 }

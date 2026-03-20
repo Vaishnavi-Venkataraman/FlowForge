@@ -1,5 +1,5 @@
 package com.flowforge.engine.strategy;
-
+import java.util.logging.Logger;
 import com.flowforge.exception.TaskExecutionException;
 import com.flowforge.model.TaskConfig;
 import com.flowforge.model.TaskResult;
@@ -12,7 +12,7 @@ import java.util.Map;
 import java.util.function.Predicate;
 
 public class ConditionalStrategy implements ExecutionStrategy {
-
+    private static final Logger LOGGER = Logger.getLogger(ConditionalStrategy.class.getName()); 
     private final Predicate<TaskConfig> condition;
     private final String conditionDescription;
 
@@ -40,7 +40,7 @@ public class ConditionalStrategy implements ExecutionStrategy {
 
         for (TaskConfig config : taskConfigs) {
             if (!condition.test(config)) {
-                System.out.println("  [conditional] SKIPPED: " + config.getName()
+                LOGGER.info("  [conditional] SKIPPED: " + config.getName()
                         + " (condition not met: " + conditionDescription + ")");
                 results.put(config.getName(),
                         TaskResult.success("Skipped - condition not met", java.time.Instant.now()));
@@ -48,7 +48,7 @@ public class ConditionalStrategy implements ExecutionStrategy {
             }
 
             Task task = factory.createTask(config);
-            System.out.println("  [conditional] Executing: " + task.getName());
+            LOGGER.info("  [conditional] Executing: " + task.getName());
 
             TaskResult result = task.execute(config);
             results.put(task.getName(), result);

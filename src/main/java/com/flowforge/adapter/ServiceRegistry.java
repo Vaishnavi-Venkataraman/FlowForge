@@ -3,9 +3,10 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.logging.Logger;
 
 public class ServiceRegistry {
-
+    private static final Logger LOGGER = Logger.getLogger(ServiceRegistry.class.getName());
     private final Map<String, ExternalService> services = new HashMap<>();
 
     public void register(ExternalService service) {
@@ -13,7 +14,7 @@ public class ServiceRegistry {
             throw new IllegalArgumentException("Service cannot be null");
         }
         services.put(service.getServiceId(), service);
-        System.out.println("[ServiceRegistry] Registered: " + service.getServiceName()
+        LOGGER.info("[ServiceRegistry] Registered: " + service.getServiceName()
                 + " [" + service.getServiceId() + ", protocol=" + service.getProtocol() + "]");
     }
 
@@ -38,7 +39,7 @@ public class ServiceRegistry {
      * Health-checks all registered services.
      */
     public void healthCheckAll() {
-        System.out.println("=== Service Health Check ===");
+        LOGGER.info("=== Service Health Check ===");
         for (ExternalService service : services.values()) {
             boolean healthy = false;
             try {
@@ -47,7 +48,7 @@ public class ServiceRegistry {
                 // health check failed
             }
             String status = healthy ? "HEALTHY" : "UNHEALTHY";
-            System.out.println("  " + service.getServiceName()
+            LOGGER.info("  " + service.getServiceName()
                     + " [" + service.getProtocol() + "] — " + status);
         }
     }

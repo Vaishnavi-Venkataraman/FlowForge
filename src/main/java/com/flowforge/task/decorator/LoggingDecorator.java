@@ -1,5 +1,5 @@
 package com.flowforge.task.decorator;
-
+import java.util.logging.Logger;
 import com.flowforge.model.TaskConfig;
 import com.flowforge.model.TaskResult;
 import com.flowforge.task.Task;
@@ -15,13 +15,15 @@ import com.flowforge.task.Task;
  */
 public class LoggingDecorator extends TaskDecorator {
 
+    private static final Logger LOGGER = Logger.getLogger(LoggingDecorator.class.getName());
+
     public LoggingDecorator(Task wrappedTask) {
         super(wrappedTask);
     }
 
     @Override
     public TaskResult execute(TaskConfig config) {
-        System.out.println("    [LoggingDecorator] >>> START task: " + getName()
+        LOGGER.info("    [LoggingDecorator] >>> START task: " + getName()
                 + " [type=" + getType() + "]");
         long startMs = System.currentTimeMillis();
 
@@ -29,7 +31,7 @@ public class LoggingDecorator extends TaskDecorator {
 
         long durationMs = System.currentTimeMillis() - startMs;
         String status = result.isSuccess() ? "SUCCESS" : "FAILED";
-        System.out.println("    [LoggingDecorator] <<< END task: " + getName()
+        LOGGER.info("    [LoggingDecorator] <<< END task: " + getName()
                 + " [" + status + ", " + durationMs + "ms]");
 
         return result;

@@ -1,8 +1,9 @@
 package com.flowforge.adapter.thirdparty;
+import java.util.logging.Logger;
 
 /* Simulated third-party legacy SOAP service client. */
 public class SoapServiceClient {
-
+    private static final Logger LOGGER = Logger.getLogger(SoapServiceClient.class.getName());
     private final String wsdlUrl;
 
     public SoapServiceClient(String wsdlUrl) {
@@ -13,8 +14,8 @@ public class SoapServiceClient {
      * Completely different API — XML envelope in, XML envelope out.
      */
     public SoapEnvelope callOperation(String operationName, String xmlPayload) {
-        System.out.println("      [SoapClient] SOAP call: " + operationName + " → " + wsdlUrl);
-        System.out.println("      [SoapClient] Payload: " + xmlPayload);
+        LOGGER.info("      [SoapClient] SOAP call: " + operationName + " → " + wsdlUrl);
+        LOGGER.info("      [SoapClient] Payload: " + xmlPayload);
 
         // Simulate SOAP response
         String responseXml = "<soap:Envelope>"
@@ -30,7 +31,7 @@ public class SoapServiceClient {
     }
 
     public boolean isAvailable() {
-        System.out.println("      [SoapClient] Checking WSDL: " + wsdlUrl);
+        LOGGER.info("      [SoapClient] Checking WSDL: " + wsdlUrl);
         return true;
     }
 

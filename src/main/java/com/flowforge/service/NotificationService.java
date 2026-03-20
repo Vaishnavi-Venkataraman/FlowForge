@@ -1,18 +1,19 @@
 package com.flowforge.service;
-
+import java.util.logging.Logger;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
 public class NotificationService {
 
+    private static final Logger LOGGER = Logger.getLogger(NotificationService.class.getName());
     private static final String SERVICE_NAME = "NotificationService";
     private static final String KEY_WORKFLOW_NAME = "workflowName";
     private final List<String> sentNotifications = new ArrayList<>();
 
     public NotificationService(ServiceBus bus) {
         bus.subscribe("notifications", this::handleNotification);
-        System.out.println("[" + SERVICE_NAME + "] Started. Listening on: notifications");
+        LOGGER.info("[" + SERVICE_NAME + "] Started. Listening on: notifications");
     }
 
     private void handleNotification(ServiceMessage message) {
@@ -35,7 +36,7 @@ public class NotificationService {
         };
 
         sentNotifications.add(notification);
-        System.out.println("[" + SERVICE_NAME + "] " + notification);
+        LOGGER.info("[" + SERVICE_NAME + "] " + notification);
     }
 
     public List<String> getSentNotifications() {
@@ -43,9 +44,9 @@ public class NotificationService {
     }
 
     public void printSummary() {
-        System.out.println("=== Notification Summary (" + sentNotifications.size() + " sent) ===");
+        LOGGER.info("=== Notification Summary (" + sentNotifications.size() + " sent) ===");
         for (String n : sentNotifications) {
-            System.out.println("  " + n);
+            LOGGER.info("  " + n);
         }
     }
 }

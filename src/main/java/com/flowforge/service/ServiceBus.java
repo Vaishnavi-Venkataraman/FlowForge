@@ -1,5 +1,5 @@
 package com.flowforge.service;
-
+import java.util.logging.Logger;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -9,6 +9,7 @@ import java.util.function.Consumer;
 public class ServiceBus {
 
     private final Map<String, List<Consumer<ServiceMessage>>> subscribers = new ConcurrentHashMap<>();
+    private static final Logger LOGGER = Logger.getLogger(ServiceBus.class.getName());
 
     /**
      * Subscribe to a named channel.
@@ -27,7 +28,7 @@ public class ServiceBus {
                 try {
                     handler.accept(message);
                 } catch (Exception e) {
-                    System.err.println("[ServiceBus] Handler error on channel '"
+                    LOGGER.warning("[ServiceBus] Handler error on channel '"
                             + channel + "': " + e.getMessage());
                     // Fault isolation: one handler failing doesn't stop others
                 }

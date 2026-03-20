@@ -1,27 +1,12 @@
 package com.flowforge.task.decorator;
-
+import java.util.logging.Logger;
 import com.flowforge.model.TaskConfig;
 import com.flowforge.model.TaskResult;
 import com.flowforge.task.Task;
 
-/**
- * Decorator that adds retry logic with exponential backoff.
- *
- * WHY: Tasks can fail due to transient issues (network timeout, rate limit,
- * temporary DB lock). Retrying with backoff is a common resilience pattern.
- *
- * Without Decorator: every task would need its own retry loop, or the engine
- * would need retry logic for every task — both violate SRP and DRY.
- *
- * With this Decorator:
- *   Task retryableTask = new RetryDecorator(new HttpTask("Fetch"), 3, 1000);
- *   // HttpTask knows nothing about retries. RetryDecorator handles it.
- *
- * Composable with other decorators:
- *   new RetryDecorator(new LoggingDecorator(new HttpTask("Fetch")), 3, 1000);
- */
-public class RetryDecorator extends TaskDecorator {
 
+public class RetryDecorator extends TaskDecorator {
+    private static final Logger LOGGER = Logger.getLogger(RetryDecorator.class.getName());
     private final int maxRetries;
     private final long initialDelayMs;
 
@@ -46,7 +31,7 @@ public class RetryDecorator extends TaskDecorator {
 
         for (int attempt = 0; attempt <= maxRetries; attempt++) {
             if (attempt > 0) {
-                System.out.println("    [RetryDecorator] Retry attempt " + attempt
+                LOGGER.info("    [RetryDecorator] Retry attempt " + attempt
                         + "/" + maxRetries + " for task: " + getName()
                         + " (backoff: " + delay + "ms)");
                 try {
@@ -62,14 +47,14 @@ public class RetryDecorator extends TaskDecorator {
 
             if (result.isSuccess()) {
                 if (attempt > 0) {
-                    System.out.println("    [RetryDecorator] Task " + getName()
+                    LOGGER.info("    [RetryDecorator] Task " + getName()
                             + " succeeded on attempt " + (attempt + 1));
                 }
                 return result;
             }
         }
 
-        System.out.println("    [RetryDecorator] Task " + getName()
+        LOGGER.info("    [RetryDecorator] Task " + getName()
                 + " FAILED after " + (maxRetries + 1) + " attempts");
         return result;
     }

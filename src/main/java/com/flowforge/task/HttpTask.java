@@ -1,15 +1,10 @@
 package com.flowforge.task;
-
+import java.util.logging.Logger;
 import com.flowforge.model.TaskConfig;
 
-/**
- * HTTP task — refactored to use Template Method lifecycle.
- *
- * BEFORE (Commit 2-6): implemented execute() directly, no validation.
- * NOW: extends AbstractTask, overrides validate() and doExecute().
- * The lifecycle (validate → execute → cleanup) is guaranteed by AbstractTask.
- */
 public class HttpTask extends AbstractTask {
+
+    private static final Logger LOGGER = Logger.getLogger(HttpTask.class.getName());
 
     public HttpTask(String name) {
         super(name);
@@ -30,7 +25,7 @@ public class HttpTask extends AbstractTask {
     protected String doExecute(TaskConfig config) {
         String url = config.getRequiredParameter("url");
         String method = config.getParameter("method", "GET");
-        System.out.println("    HTTP " + method + " " + url);
+        LOGGER.info("    HTTP " + method + " " + url);
         return "HTTP " + method + " " + url + " → 200 OK";
     }
 }

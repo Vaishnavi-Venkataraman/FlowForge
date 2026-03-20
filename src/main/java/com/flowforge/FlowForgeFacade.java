@@ -1,5 +1,5 @@
 package com.flowforge;
-
+import java.util.logging.Logger;
 import com.flowforge.adapter.*;
 import com.flowforge.adapter.thirdparty.CloudStorageSDK;
 import com.flowforge.adapter.thirdparty.RestApiClient;
@@ -29,7 +29,7 @@ import java.util.function.Function;
  * The holder pattern is the modern Java singleton — lazy, thread-safe, no locks.
  */
 public class FlowForgeFacade {
-
+    private static final Logger LOGGER = Logger.getLogger(FlowForgeFacade.class.getName());
     private static class Holder {
         private static final FlowForgeFacade INSTANCE = new FlowForgeFacade();
     }
@@ -202,9 +202,9 @@ public class FlowForgeFacade {
      */
     public void printDashboards() {
         notificationService.printSummary();
-        System.out.println();
+        LOGGER.info("Notification Summary:");
         analyticsService.printDashboard();
-        System.out.println();
+        LOGGER.info("Analytics Dashboard:");
         auditService.printAuditLog();
     }
 
@@ -220,6 +220,6 @@ public class FlowForgeFacade {
      */
     public void shutdown() {
         pluginRegistry.stopAll();
-        System.out.println("[FlowForge] Shutdown complete.");
+        LOGGER.info("[FlowForge] Shutdown complete.");
     }
 }

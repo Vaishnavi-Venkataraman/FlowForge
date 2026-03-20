@@ -5,13 +5,13 @@ import com.flowforge.model.TaskConfig;
 import com.flowforge.model.TaskResult;
 import com.flowforge.task.Task;
 import com.flowforge.task.TaskFactory;
-
+import java.util.logging.Logger;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
 public class SequentialStrategy implements ExecutionStrategy {
-
+    private static final Logger LOGGER = Logger.getLogger(SequentialStrategy.class.getName());
     @Override
     public String getName() {
         return "sequential";
@@ -23,7 +23,7 @@ public class SequentialStrategy implements ExecutionStrategy {
 
         for (TaskConfig config : taskConfigs) {
             Task task = factory.createTask(config);
-            System.out.println("  [sequential] Executing: " + task.getName());
+            LOGGER.info("  [sequential] Executing: " + task.getName());
 
             TaskResult result = task.execute(config);
             results.put(task.getName(), result);

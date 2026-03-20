@@ -1,5 +1,5 @@
 package com.flowforge.adapter;
-
+import java.util.logging.Logger;
 import com.flowforge.model.TaskConfig;
 import com.flowforge.task.AbstractTask;
 
@@ -7,7 +7,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class ExternalServiceTask extends AbstractTask {
-
+    private static final Logger LOGGER = Logger.getLogger(ExternalServiceTask.class.getName());
     private static final String KEY_SERVICE_ID = "serviceId";
     private static final String KEY_OPERATION = "operation";
     private final ServiceRegistry serviceRegistry;
@@ -44,7 +44,7 @@ public class ExternalServiceTask extends AbstractTask {
 
         ExternalService service = serviceRegistry.getService(serviceId);
 
-        System.out.println("    Calling " + service.getServiceName()
+        LOGGER.info("    Calling " + service.getServiceName()
                 + " [" + service.getProtocol() + "] — operation: " + operation);
 
         ServiceResponse response = service.execute(operation, serviceParams);

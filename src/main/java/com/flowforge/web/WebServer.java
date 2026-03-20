@@ -1,12 +1,12 @@
 package com.flowforge.web;
-
+import java.util.logging.Logger;
 import com.sun.net.httpserver.HttpServer;
 
 import java.io.IOException;
 import java.net.InetSocketAddress;
 
 public class WebServer {
-
+    private static final Logger LOGGER = Logger.getLogger(WebServer.class.getName());
     private final HttpServer server;
     private final int port;
 
@@ -22,11 +22,11 @@ public class WebServer {
     public void start() {
         server.setExecutor(java.util.concurrent.Executors.newFixedThreadPool(4));
         server.start();
-        System.out.println("[WebServer] Started on http://localhost:" + port);
+        LOGGER.info("[WebServer] Started on http://localhost:" + port);
     }
 
     public void stop() {
         server.stop(1);
-        System.out.println("[WebServer] Stopped");
+        LOGGER.info("[WebServer] Stopped");
     }
 }

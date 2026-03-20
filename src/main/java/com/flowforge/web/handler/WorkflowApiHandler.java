@@ -1,5 +1,5 @@
 package com.flowforge.web.handler;
-
+import java.util.logging.Logger;
 import com.flowforge.exception.FlowForgeException;
 import com.flowforge.model.WorkflowDefinition;
 import com.flowforge.web.JsonUtil;
@@ -18,7 +18,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * REST API for workflow CRUD and execution.
  */
 public class WorkflowApiHandler implements HttpHandler {
-
+    private static final Logger LOGGER = Logger.getLogger(WorkflowApiHandler.class.getName());
     private static final String KEY_ERROR = "error";
     private static final String KEY_SUCCESS = "success";
     private static final String ERROR_NOT_FOUND = "Workflow not found";
@@ -49,12 +49,12 @@ public class WorkflowApiHandler implements HttpHandler {
                     flowforge.registerWorkflowWithId(stored.id(), wfDef);
                     count++;
                 } catch (Exception e) {
-                    System.err.println("[Reload] Failed: " + stored.name() + " — " + e.getMessage());
+                    LOGGER.warning("[Reload] Failed: " + stored.name() + " — " + e.getMessage());
                 }
             }
         }
         if (count > 0) {
-            System.out.println("[WorkflowApi] Reloaded " + count + " workflows from disk");
+            LOGGER.info("[WorkflowApi] Reloaded " + count + " workflows from disk");
         }
     }
 
@@ -244,7 +244,7 @@ public class WorkflowApiHandler implements HttpHandler {
 
         workflowStore.addExecution(username, id, execRecord);
 
-        System.out.println(
+        LOGGER.info(
                 "[Execute] " + wf.name() +
                 " -> " + status +
                 " (" + (endTime - startTime) + "ms)"

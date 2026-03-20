@@ -1,33 +1,33 @@
 package com.flowforge.adapter.thirdparty;
-
+import java.util.logging.Logger;
 /**
  * Simulated cloud storage SDK (like AWS S3, GCP Cloud Storage).
  */
 public class CloudStorageSDK {
-
+    private static final Logger LOGGER = Logger.getLogger(CloudStorageSDK.class.getName());
     private final String region;
     public CloudStorageSDK(String region, String accountId) {
         this.region = region;
     }
 
     public StorageResult uploadObject(String bucket, String key, String content) {
-        System.out.println("      [CloudStorage] UPLOAD s3://" + bucket + "/" + key
+        LOGGER.info("      [CloudStorage] UPLOAD s3://" + bucket + "/" + key
                 + " (region=" + region + ")");
         return new StorageResult(true, "etag-abc123", bucket + "/" + key);
     }
 
     public StorageResult downloadObject(String bucket, String key) {
-        System.out.println("      [CloudStorage] DOWNLOAD s3://" + bucket + "/" + key);
+        LOGGER.info("      [CloudStorage] DOWNLOAD s3://" + bucket + "/" + key);
         return new StorageResult(true, null, "file-content-bytes");
     }
 
     public StorageResult deleteObject(String bucket, String key) {
-        System.out.println("      [CloudStorage] DELETE s3://" + bucket + "/" + key);
+        LOGGER.info("      [CloudStorage] DELETE s3://" + bucket + "/" + key);
         return new StorageResult(true, null, null);
     }
 
     public boolean bucketExists(String bucket) {
-        System.out.println("      [CloudStorage] HEAD bucket: " + bucket);
+        LOGGER.info("      [CloudStorage] HEAD bucket: " + bucket);
         return true;
     }
 

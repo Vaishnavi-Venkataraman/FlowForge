@@ -1,5 +1,5 @@
 package com.flowforge;
-
+import java.util.logging.Logger;
 import com.flowforge.plugin.builtin.FileOperationsPlugin;
 import com.flowforge.web.UserStore;
 import com.flowforge.web.WebServer;
@@ -9,11 +9,11 @@ import com.flowforge.web.handler.StaticFileHandler;
 import com.flowforge.web.handler.WorkflowApiHandler;
 
 public class Main {
-
+    private static final Logger LOGGER = Logger.getLogger(Main.class.getName());
     private static final int PORT = 8080;
 
     public static void main(String[] args) throws Exception {
-        System.out.println("========== FlowForge ==========");
+        LOGGER.info("========== FlowForge ==========");
 
         // Core engine
         FlowForgeFacade flowforge = FlowForgeFacade.getInstance();
@@ -39,14 +39,12 @@ public class Main {
         server.registerHandler("/", new StaticFileHandler());
         server.start();
 
-        System.out.println();
-        System.out.println("  +------------------------------------------+");
-        System.out.println("  |  FlowForge is running!                   |");
-        System.out.println("  |  Open: http://localhost:" + PORT + "              |");
-        System.out.println("  |  Data saved in: data/                    |");
-        System.out.println("  |  Press Ctrl+C to stop                    |");
-        System.out.println("  +------------------------------------------+");
-        System.out.println();
+        LOGGER.info("  +------------------------------------------+");
+        LOGGER.info("  |  FlowForge is running!                   |");
+        LOGGER.info("  |  Open: http://localhost:" + PORT + "              |");
+        LOGGER.info("  |  Data saved in: data/                    |");
+        LOGGER.info("  |  Press Ctrl+C to stop                    |");
+        LOGGER.info("  +------------------------------------------+");
 
         // Auto-open browser
             try {

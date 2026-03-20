@@ -1,5 +1,5 @@
 package com.flowforge.service;
-
+import java.util.logging.Logger;
 import com.flowforge.engine.WorkflowEngine;
 import com.flowforge.exception.FlowForgeException;
 import com.flowforge.model.WorkflowDefinition;
@@ -7,7 +7,7 @@ import com.flowforge.model.WorkflowDefinition;
 import java.util.Map;
 
 public class ExecutionService {
-
+    private static final Logger LOGGER = Logger.getLogger(ExecutionService.class.getName());
     private static final String SERVICE_NAME = "ExecutionService";
     private static final String CHANNEL_REQUESTS = "execution.requests";
     private static final String KEY_WORKFLOW_ID = "workflowId";
@@ -24,14 +24,14 @@ public class ExecutionService {
         // Subscribe to execution requests from other services
         bus.subscribe(CHANNEL_REQUESTS, this::handleExecutionRequest);
 
-        System.out.println("[" + SERVICE_NAME + "] Started. Listening on: " + CHANNEL_REQUESTS);
+        LOGGER.info("[" + SERVICE_NAME + "] Started. Listening on: " + CHANNEL_REQUESTS);
     }
 
     private void handleExecutionRequest(ServiceMessage message) {
         String workflowId = message.getPayloadValue(KEY_WORKFLOW_ID, null);
         String workflowName = message.getPayloadValue(KEY_WORKFLOW_NAME, "unknown");
 
-        System.out.println("[" + SERVICE_NAME + "] Received execution request: " + workflowName);
+        LOGGER.info("[" + SERVICE_NAME + "] Received execution request: " + workflowName);
 
         if (workflowId == null) {
             bus.publish("execution.errors", ServiceMessage.of("EXECUTION_ERROR", SERVICE_NAME,

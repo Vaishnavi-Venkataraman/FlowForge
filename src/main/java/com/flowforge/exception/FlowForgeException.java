@@ -3,7 +3,7 @@ package com.flowforge.exception;
 /**
  * Base exception for all FlowForge errors.
  *
- * WHY: The naive implementation used System.out.println("ERROR: ...")
+ * WHY: The naive implementation used LOGGER.info("ERROR: ...")
  * and returned null on failure. A proper exception hierarchy lets callers
  * handle specific failure modes and avoids silent null propagation.
  */

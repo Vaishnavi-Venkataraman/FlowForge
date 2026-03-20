@@ -1,9 +1,9 @@
 package com.flowforge.plugin;
-
+import java.util.logging.Logger;
 import java.util.*;
 
 public class PluginRegistry {
-
+    private static final Logger LOGGER = Logger.getLogger(PluginRegistry.class.getName());
     private final Map<String, Plugin> plugins = new LinkedHashMap<>();
     private final Map<String, PluginState> states = new HashMap<>();
     private final PluginContext context;
@@ -38,7 +38,7 @@ public class PluginRegistry {
         }
         plugins.put(plugin.getId(), plugin);
         states.put(plugin.getId(), PluginState.REGISTERED);
-        System.out.println("[PluginRegistry] Registered: " + plugin.getName()
+        LOGGER.info("[PluginRegistry] Registered: " + plugin.getName()
                 + " v" + plugin.getVersion() + " (" + plugin.getId() + ")");
     }
 
@@ -56,13 +56,13 @@ public class PluginRegistry {
             }
 
             try {
-                System.out.println("[PluginRegistry] Initializing: " + plugin.getName());
+                LOGGER.info("[PluginRegistry] Initializing: " + plugin.getName());
                 plugin.initialize(context);
                 states.put(id, PluginState.INITIALIZED);
-                System.out.println("[PluginRegistry] Initialized: " + plugin.getName());
+                LOGGER.info("[PluginRegistry] Initialized: " + plugin.getName());
             } catch (Exception e) {
                 states.put(id, PluginState.FAILED);
-                System.err.println("[PluginRegistry] FAILED to initialize " + plugin.getName()
+                LOGGER.warning("[PluginRegistry] FAILED to initialize " + plugin.getName()
                         + ": " + e.getMessage());
             }
         }
@@ -83,10 +83,10 @@ public class PluginRegistry {
             try {
                 plugin.start();
                 states.put(id, PluginState.STARTED);
-                System.out.println("[PluginRegistry] Started: " + plugin.getName());
+                LOGGER.info("[PluginRegistry] Started: " + plugin.getName());
             } catch (Exception e) {
                 states.put(id, PluginState.FAILED);
-                System.err.println("[PluginRegistry] FAILED to start " + plugin.getName()
+                LOGGER.warning("[PluginRegistry] FAILED to start " + plugin.getName()
                         + ": " + e.getMessage());
             }
         }
@@ -104,9 +104,9 @@ public class PluginRegistry {
                     try {
                         plugin.stop();
                         states.put(id, PluginState.STOPPED);
-                        System.out.println("[PluginRegistry] Stopped: " + plugin.getName());
+                        LOGGER.info("[PluginRegistry] Stopped: " + plugin.getName());
                     } catch (Exception e) {
-                        System.err.println("[PluginRegistry] Error stopping " + plugin.getName()
+                        LOGGER.warning("[PluginRegistry] Error stopping " + plugin.getName()
                                 + ": " + e.getMessage());
                     }
                 }
@@ -124,11 +124,11 @@ public class PluginRegistry {
      * Lists all registered plugins with their states.
      */
     public void printStatus() {
-        System.out.println("=== Plugin Registry Status ===");
+        LOGGER.info("=== Plugin Registry Status ===");
         for (Map.Entry<String, Plugin> entry : plugins.entrySet()) {
             Plugin p = entry.getValue();
             PluginState state = states.get(entry.getKey());
-            System.out.println("  " + p.getName() + " v" + p.getVersion()
+            LOGGER.info("  " + p.getName() + " v" + p.getVersion()
                     + " [" + p.getId() + "] — " + state);
         }
     }

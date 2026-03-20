@@ -3,6 +3,7 @@ package com.flowforge.web;
 import java.io.*;
 import java.nio.file.*;
 import java.util.*;
+import java.util.logging.Logger;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 
@@ -11,7 +12,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * Data saved to data/workflows/ and data/executions/ — survives restarts.
  */
 public class WorkflowStore {
-
+    private static final Logger LOGGER = Logger.getLogger(WorkflowStore.class.getName());
     private static final Path DATA_DIR = Path.of("data");
     private static final Path WF_DIR = DATA_DIR.resolve("workflows");
     private static final Path EXEC_DIR = DATA_DIR.resolve("executions");
@@ -93,7 +94,7 @@ public class WorkflowStore {
                 }
             }
         } catch (IOException e) {
-            System.err.println("[WorkflowStore] Save failed: " + e.getMessage());
+            LOGGER.warning("[WorkflowStore] Save failed: " + e.getMessage());
         }
     }
 
@@ -107,7 +108,7 @@ public class WorkflowStore {
                         + execRecord.startedAt() + "|" + execRecord.finishedAt() + "|" + logsEncoded);
             }
         } catch (IOException e) {
-            System.err.println("[WorkflowStore] Exec save failed: " + e.getMessage());
+            LOGGER.warning("[WorkflowStore] Exec save failed: " + e.getMessage());
         }
     }
 
@@ -116,7 +117,7 @@ public class WorkflowStore {
         try (var files = Files.list(WF_DIR)) {
             files.filter(p -> p.toString().endsWith(".dat")).forEach(this::loadUserFile);
         } catch (IOException e) {
-            System.err.println("[WorkflowStore] Load failed: " + e.getMessage());
+            LOGGER.warning("[WorkflowStore] Load failed: " + e.getMessage());
         }
     }
 
@@ -136,9 +137,9 @@ public class WorkflowStore {
                                 parts[4], tasks, Long.parseLong(parts[5]),
                                 new CopyOnWriteArrayList<>(execs)));
             }
-            System.out.println("[WorkflowStore] Loaded " + getWorkflows(owner).size() + " workflows for: " + owner);
+            LOGGER.info("[WorkflowStore] Loaded " + getWorkflows(owner).size() + " workflows for: " + owner);
         } catch (IOException e) {
-            System.err.println("[WorkflowStore] Failed loading " + file + ": " + e.getMessage());
+            LOGGER.warning("[WorkflowStore] Failed loading " + file + ": " + e.getMessage());
         }
     }
 
@@ -175,7 +176,7 @@ public class WorkflowStore {
                         Long.parseLong(parts[2]), Long.parseLong(parts[3]), logs));
             }
         } catch (IOException e) {
-            System.err.println("[WorkflowStore] Failed loading executions for " + workflowId);
+            LOGGER.warning("[WorkflowStore] Failed loading executions for " + workflowId);
         }
         return execs;
     }
