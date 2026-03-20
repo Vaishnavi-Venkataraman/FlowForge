@@ -2,7 +2,6 @@ package com.flowforge.engine.strategy;
 
 import com.flowforge.model.TaskConfig;
 import com.flowforge.model.TaskResult;
-import com.flowforge.task.Task;
 import com.flowforge.task.TaskFactory;
 
 import java.util.List;

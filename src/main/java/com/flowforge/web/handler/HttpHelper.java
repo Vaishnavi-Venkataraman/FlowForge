@@ -10,6 +10,8 @@ import java.util.Map;
 
 public final class HttpHelper {
 
+    private static final String SESSION_PREFIX = "session=";
+
     private HttpHelper() {}
 
     public static void sendJson(HttpExchange exchange, int status, Map<String, Object> data) throws IOException {
@@ -42,23 +44,26 @@ public final class HttpHelper {
     public static String getSessionId(HttpExchange exchange) {
         String cookie = exchange.getRequestHeaders().getFirst("Cookie");
         if (cookie == null) return null;
+
         for (String part : cookie.split(";")) {
             String trimmed = part.trim();
-            if (trimmed.startsWith("session=")) {
-                return trimmed.substring("session=".length());
+            if (trimmed.startsWith(SESSION_PREFIX)) {
+                return trimmed.substring(SESSION_PREFIX.length());
             }
         }
+
         // Also check Authorization header
         String auth = exchange.getRequestHeaders().getFirst("Authorization");
         if (auth != null && auth.startsWith("Bearer ")) {
             return auth.substring(7);
         }
+
         return null;
     }
 
     public static void setCookie(HttpExchange exchange, String sessionId) {
         exchange.getResponseHeaders().set("Set-Cookie",
-                "session=" + sessionId + "; Path=/; HttpOnly; SameSite=Lax");
+                SESSION_PREFIX + sessionId + "; Path=/; HttpOnly; SameSite=Lax");
     }
 
     public static void handleCors(HttpExchange exchange) throws IOException {

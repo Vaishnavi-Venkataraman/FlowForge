@@ -7,6 +7,7 @@ import java.util.Map;
 public class NotificationService {
 
     private static final String SERVICE_NAME = "NotificationService";
+    private static final String KEY_WORKFLOW_NAME = "workflowName";
     private final List<String> sentNotifications = new ArrayList<>();
 
     public NotificationService(ServiceBus bus) {
@@ -20,13 +21,16 @@ public class NotificationService {
 
         String notification = switch (action) {
             case "WORKFLOW_COMPLETED" ->
-                    "✓ SUCCESS: Workflow '" + payload.getOrDefault("workflowName", "?") + "' completed";
+                    "✓ SUCCESS: Workflow '" + payload.getOrDefault(KEY_WORKFLOW_NAME, "?") + "' completed";
+
             case "WORKFLOW_FAILED" ->
-                    "✗ FAILURE: Workflow '" + payload.getOrDefault("workflowName", "?")
+                    "✗ FAILURE: Workflow '" + payload.getOrDefault(KEY_WORKFLOW_NAME, "?")
                             + "' — " + payload.getOrDefault("error", "unknown error");
+
             case "TRIGGER_FIRED" ->
                     "⚡ TRIGGER: " + payload.getOrDefault("triggerType", "?")
-                            + " fired for workflow '" + payload.getOrDefault("workflowName", "?") + "'";
+                            + " fired for workflow '" + payload.getOrDefault(KEY_WORKFLOW_NAME, "?") + "'";
+
             default -> "ℹ " + action + ": " + payload;
         };
 

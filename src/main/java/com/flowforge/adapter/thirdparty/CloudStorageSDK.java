@@ -6,11 +6,8 @@ package com.flowforge.adapter.thirdparty;
 public class CloudStorageSDK {
 
     private final String region;
-    private final String accountId;
-
     public CloudStorageSDK(String region, String accountId) {
         this.region = region;
-        this.accountId = accountId;
     }
 
     public StorageResult uploadObject(String bucket, String key, String content) {

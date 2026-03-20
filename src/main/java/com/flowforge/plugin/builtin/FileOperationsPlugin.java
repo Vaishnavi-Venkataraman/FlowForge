@@ -24,10 +24,14 @@ public class FileOperationsPlugin implements Plugin {
     }
 
     @Override
-    public void start() { }
+    public void start() { 
+        // No active resources to manage 
+        }
 
     @Override
-    public void stop() { }
+    public void stop() { 
+        // No active resources to manage
+    }
 
     // --- Named task classes instead of anonymous inner classes ---
 

@@ -23,7 +23,6 @@ import com.flowforge.task.decorator.TimeoutDecorator;
 
 import java.util.Set;
 import java.util.function.Function;
-import java.util.function.Predicate;
 
 /**
  * Facade that hides ALL internal wiring complexity behind a simple API.

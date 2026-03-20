@@ -6,7 +6,7 @@ import java.util.Map;
 public class TriggerService {
 
     private static final String SERVICE_NAME = "TriggerService";
-
+    private static final String KEY_WORKFLOW_NAME = "workflowName";
     private final ServiceBus bus;
     private final Map<String, WorkflowTriggerInfo> registeredTriggers = new HashMap<>();
 
@@ -41,21 +41,22 @@ public class TriggerService {
         System.out.println("[" + SERVICE_NAME + "] Trigger fired: "
                 + info.triggerType + "(" + info.triggerValue + ") → " + info.workflowName);
 
-        // Notify about trigger firing
+                // Notify about trigger firing
         bus.publish("notifications", ServiceMessage.of("TRIGGER_FIRED", SERVICE_NAME,
-                Map.of("workflowName", info.workflowName,
+                Map.of(KEY_WORKFLOW_NAME, info.workflowName,
                         "triggerType", info.triggerType,
                         "triggerValue", info.triggerValue)));
 
-        // Request execution — TriggerService does NOT execute, it requests
+        // Request execution
         bus.publish("execution.requests", ServiceMessage.of("EXECUTE", SERVICE_NAME,
                 Map.of("workflowId", info.workflowId,
-                        "workflowName", info.workflowName,
+                        KEY_WORKFLOW_NAME, info.workflowName,
                         "triggeredBy", info.triggerType)));
 
         // Publish to analytics
         bus.publish("analytics", ServiceMessage.of("TRIGGER_FIRED", SERVICE_NAME,
-                Map.of("workflowName", info.workflowName, "triggerType", info.triggerType)));
+                Map.of(KEY_WORKFLOW_NAME, info.workflowName,
+                        "triggerType", info.triggerType)));
     }
 
     /**

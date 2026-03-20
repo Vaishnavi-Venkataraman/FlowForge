@@ -9,8 +9,11 @@ import java.util.Map;
 /**
  * A generic task that delegates to an adapted ExternalService.
  */
+
 public class ExternalServiceTask extends AbstractTask {
 
+    private static final String KEY_SERVICE_ID = "serviceId";
+    private static final String KEY_OPERATION = "operation";
     private final ServiceRegistry serviceRegistry;
 
     public ExternalServiceTask(String name, ServiceRegistry serviceRegistry) {
@@ -22,11 +25,12 @@ public class ExternalServiceTask extends AbstractTask {
     public String getType() {
         return "external_service";
     }
-
+    
     @Override
     protected void validate(TaskConfig config) {
-        String serviceId = config.getRequiredParameter("serviceId");
-        config.getRequiredParameter("operation");
+        String serviceId = config.getRequiredParameter(KEY_SERVICE_ID);
+        config.getRequiredParameter(KEY_OPERATION);
+
         if (!serviceRegistry.hasService(serviceId)) {
             throw new IllegalArgumentException("Service not found: " + serviceId);
         }
@@ -34,15 +38,16 @@ public class ExternalServiceTask extends AbstractTask {
 
     @Override
     protected String doExecute(TaskConfig config) throws Exception {
-        String serviceId = config.getRequiredParameter("serviceId");
-        String operation = config.getRequiredParameter("operation");
+        String serviceId = config.getRequiredParameter(KEY_SERVICE_ID);
+        String operation = config.getRequiredParameter(KEY_OPERATION);
 
-        // Collect all params EXCEPT serviceId and operation — pass the rest to the adapter
+        // Collect all params EXCEPT serviceId and operation
         Map<String, String> serviceParams = new HashMap<>(config.getParameters());
-        serviceParams.remove("serviceId");
-        serviceParams.remove("operation");
+        serviceParams.remove(KEY_SERVICE_ID);
+        serviceParams.remove(KEY_OPERATION);
 
         ExternalService service = serviceRegistry.getService(serviceId);
+
         System.out.println("    Calling " + service.getServiceName()
                 + " [" + service.getProtocol() + "] — operation: " + operation);
 
