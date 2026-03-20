@@ -11,6 +11,7 @@ import com.flowforge.web.handler.WorkflowApiHandler;
 public class Main {
     private static final Logger LOGGER = Logger.getLogger(Main.class.getName());
     private static final int PORT = 8080;
+    private static final String BASE_URL = "http://localhost:" + PORT;
 
     public static void main(String[] args) throws Exception {
         LOGGER.info("========== FlowForge ==========");
@@ -41,7 +42,7 @@ public class Main {
 
         LOGGER.info("  +------------------------------------------+");
         LOGGER.info("  |  FlowForge is running!                   |");
-        LOGGER.info("  |  Open: http://localhost:" + PORT + "              |");
+        LOGGER.info("  |  Open: " + BASE_URL + "              |");
         LOGGER.info("  |  Data saved in: data/                    |");
         LOGGER.info("  |  Press Ctrl+C to stop                    |");
         LOGGER.info("  +------------------------------------------+");
@@ -51,11 +52,11 @@ public class Main {
         String os = System.getProperty("os.name").toLowerCase();
 
         if (os.contains("win")) {
-            new ProcessBuilder("cmd", "/c", "start", "http://localhost:" + PORT).start();
+            new ProcessBuilder("cmd", "/c", "start", BASE_URL).start();
         } else if (os.contains("mac")) {
-            new ProcessBuilder("open", "http://localhost:" + PORT).start();
+            new ProcessBuilder("open", BASE_URL).start();
         } else {
-            new ProcessBuilder("xdg-open", "http://localhost:" + PORT).start();
+            new ProcessBuilder("xdg-open", BASE_URL).start();
         }
 
     } catch (Exception ignored) {

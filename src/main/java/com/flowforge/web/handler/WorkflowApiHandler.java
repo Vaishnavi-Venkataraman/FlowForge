@@ -1,6 +1,5 @@
 package com.flowforge.web.handler;
 import java.util.logging.Logger;
-import com.flowforge.exception.FlowForgeException;
 import com.flowforge.model.WorkflowDefinition;
 import com.flowforge.web.JsonUtil;
 import com.flowforge.web.UserStore;
@@ -209,12 +208,6 @@ public class WorkflowApiHandler implements HttpHandler {
 
             System.out.flush();
             status = "COMPLETED";
-
-        } catch (FlowForgeException e) {
-
-            System.out.flush();
-            status = "FAILED";
-            logs.add("ERROR: " + e.getMessage());
 
         } catch (Exception e) {
 

@@ -47,7 +47,7 @@ public class AnalyticsService {
         LOGGER.info("  Failures: " + failureCount);
         double rate = totalExecutions.get() > 0
                 ? (successCount.get() * 100.0 / totalExecutions.get()) : 0;
-        LOGGER.info(String.format("  Success rate: %.1f%%\n", rate));
+        LOGGER.info(String.format("  Success rate: %.1f%%%n", rate));
         LOGGER.info("  Per-workflow breakdown:");
         perWorkflowCount.forEach((name, count) ->
                 LOGGER.info("    " + name + ": " + count + " execution(s)"));

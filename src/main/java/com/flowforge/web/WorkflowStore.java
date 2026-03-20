@@ -70,7 +70,9 @@ public class WorkflowStore {
         boolean removed = workflows.removeIf(w -> w.id().equals(workflowId));
         if (removed) {
             persistUserWorkflows(owner);
-            try { Files.deleteIfExists(EXEC_DIR.resolve(workflowId + ".dat")); } catch (IOException ignored) {}
+            try { Files.deleteIfExists(EXEC_DIR.resolve(workflowId + ".dat")); } catch (IOException ignored) {
+                // IOException handled silently — file deletion is best-effort
+                }
         }
         return removed;
     }

@@ -17,6 +17,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class WorkflowEngine {
 
@@ -24,7 +25,7 @@ public class WorkflowEngine {
     private final Map<String, ExecutionStrategy> strategies = new ConcurrentHashMap<>();
     private final TaskFactory taskFactory;
     private final EventBus eventBus;
-    private volatile Pipeline pipeline;
+    private final AtomicReference<Pipeline> pipeline = new AtomicReference<>();
 
     public WorkflowEngine(TaskFactory taskFactory, EventBus eventBus) {
         this.taskFactory = taskFactory;
@@ -32,9 +33,10 @@ public class WorkflowEngine {
         registerStrategy(new SequentialStrategy());
     }
 
-    public void setPipeline(Pipeline pipeline) {
-        this.pipeline = pipeline;
+    public void setPipeline(Pipeline p) { 
+        this.pipeline.set(p); 
     }
+
 
     public void registerStrategy(ExecutionStrategy strategy) {
         strategies.put(strategy.getName(), strategy);
@@ -87,7 +89,7 @@ public class WorkflowEngine {
         }
 
         PipelineContext context = new PipelineContext(workflow);
-        PipelineContext result = pipeline.execute(context);
+        PipelineContext result = pipeline.get().execute(context);
 
         for (String log : result.getProcessingLog()) {
             eventBus.publish(WorkflowEvent.pipelineLog(workflow.getName(), workflow.getId(), log));
