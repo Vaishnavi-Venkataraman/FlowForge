@@ -1,7 +1,5 @@
 package com.flowforge.web.handler;
 
-import java.util.logging.Logger;
-
 import com.flowforge.model.WorkflowDefinition;
 import com.flowforge.web.JsonUtil;
 import com.flowforge.web.UserStore;
@@ -14,6 +12,8 @@ import com.sun.net.httpserver.HttpHandler;
 import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 /**
  * REST API for workflow CRUD and execution.
@@ -37,39 +37,31 @@ public class WorkflowApiHandler implements HttpHandler {
         this.flowforge = flowforge;
     }
 
+    /**
+     * Re-registers persisted workflows with the engine on startup.
+     */
     public void reloadPersistedWorkflows() {
-
         int count = 0;
-
         for (String owner : workflowStore.getAllOwners()) {
             for (StoredWorkflow stored : workflowStore.getWorkflows(owner)) {
                 try {
                     WorkflowDefinition wfDef = WorkflowBuildHelper.buildWorkflow(
-                            stored.name(),
-                            stored.triggerType(),
-                            stored.triggerValue(),
-                            stored.strategy(),
-                            stored.tasks()
-                    );
-
+                            stored.name(), stored.triggerType(), stored.triggerValue(),
+                            stored.strategy(), stored.tasks());
                     flowforge.registerWorkflowWithId(stored.id(), wfDef);
                     count++;
-
                 } catch (Exception e) {
-                    LOGGER.warning(() -> "[Reload] Failed: " + stored.name() + " — " + e.getMessage());
+                    LOGGER.log(Level.WARNING, "Reload failed for workflow: {0}", stored.name());
                 }
             }
         }
-
         if (count > 0) {
-            final int finalCount = count;
-            LOGGER.info(() -> "[WorkflowApi] Reloaded " + finalCount + " workflows from disk");
+            LOGGER.log(Level.INFO, "Reloaded {0} workflows from disk", count);
         }
     }
 
     @Override
     public void handle(HttpExchange exchange) throws IOException {
-
         if ("OPTIONS".equals(exchange.getRequestMethod())) {
             HttpHelper.handleCors(exchange);
             return;
@@ -77,7 +69,6 @@ public class WorkflowApiHandler implements HttpHandler {
 
         String sessionId = HttpHelper.getSessionId(exchange);
         String username = userStore.getUsername(sessionId);
-
         if (username == null) {
             HttpHelper.sendJson(exchange, 401, Map.of(KEY_ERROR, ERROR_NOT_AUTHENTICATED));
             return;
@@ -87,54 +78,39 @@ public class WorkflowApiHandler implements HttpHandler {
         String method = exchange.getRequestMethod();
 
         try {
-
-            if (path.equals("/api/workflows") && "GET".equals(method)) {
-                listWorkflows(exchange, username);
-            }
-
-            else if (path.equals("/api/workflows") && "POST".equals(method)) {
-                createWorkflow(exchange, username);
-            }
-
-            else if (path.matches("/api/workflows/[^/]+/run") && "POST".equals(method)) {
-                String id = path.split("/")[3];
-                runWorkflow(exchange, username, id);
-            }
-
-            else if (path.matches("/api/workflows/[^/]+") && "GET".equals(method)) {
-                String id = path.split("/")[3];
-                getWorkflow(exchange, username, id);
-            }
-
-            else if (path.matches("/api/workflows/[^/]+") && "DELETE".equals(method)) {
-                String id = path.split("/")[3];
-                deleteWorkflow(exchange, username, id);
-            }
-
-            else {
-                HttpHelper.sendJson(exchange, 404, Map.of(KEY_ERROR, "Not found"));
-            }
-
+            routeRequest(exchange, username, path, method);
         } catch (Exception e) {
             HttpHelper.sendJson(exchange, 500, Map.of(KEY_ERROR, e.getMessage()));
         }
     }
 
+    private void routeRequest(HttpExchange exchange, String username, String path, String method)
+            throws IOException {
+        if (path.equals("/api/workflows") && "GET".equals(method)) {
+            listWorkflows(exchange, username);
+        } else if (path.equals("/api/workflows") && "POST".equals(method)) {
+            createWorkflow(exchange, username);
+        } else if (path.matches("/api/workflows/[^/]+/run") && "POST".equals(method)) {
+            runWorkflow(exchange, username, path.split("/")[3]);
+        } else if (path.matches("/api/workflows/[^/]+") && "GET".equals(method)) {
+            getWorkflow(exchange, username, path.split("/")[3]);
+        } else if (path.matches("/api/workflows/[^/]+") && "DELETE".equals(method)) {
+            deleteWorkflow(exchange, username, path.split("/")[3]);
+        } else {
+            HttpHelper.sendJson(exchange, 404, Map.of(KEY_ERROR, "Not found"));
+        }
+    }
+
     private void listWorkflows(HttpExchange exchange, String username) throws IOException {
-
         List<Map<String, Object>> result = new ArrayList<>();
-
         for (StoredWorkflow wf : workflowStore.getWorkflows(username)) {
             result.add(toSummaryMap(wf));
         }
-
         HttpHelper.sendJsonArray(exchange, 200, JsonUtil.toJsonArray(result));
     }
 
     private void createWorkflow(HttpExchange exchange, String username) throws IOException {
-
         Map<String, String> body = HttpHelper.parseBody(exchange);
-
         String name = body.get("name");
         String triggerType = body.getOrDefault("triggerType", "MANUAL");
         String triggerValue = body.getOrDefault("triggerValue", "");
@@ -147,55 +123,34 @@ public class WorkflowApiHandler implements HttpHandler {
         }
 
         List<TaskInfo> taskInfos = parseTasksFromJson(tasksJson);
-
         if (taskInfos.isEmpty()) {
             HttpHelper.sendJson(exchange, 400, Map.of(KEY_ERROR, "At least one task is required"));
             return;
         }
 
         WorkflowDefinition wfDef = WorkflowBuildHelper.buildWorkflow(
-                name,
-                triggerType,
-                triggerValue,
-                strategy,
-                taskInfos
-        );
-
+                name, triggerType, triggerValue, strategy, taskInfos);
         String wfId = flowforge.registerWorkflow(wfDef);
 
         StoredWorkflow stored = new StoredWorkflow(
-                wfId,
-                name,
-                username,
-                triggerType,
-                triggerValue,
-                strategy,
-                taskInfos,
-                System.currentTimeMillis(),
-                new CopyOnWriteArrayList<>()
-        );
-
+                wfId, name, username, triggerType, triggerValue,
+                strategy, taskInfos, System.currentTimeMillis(),
+                new CopyOnWriteArrayList<>());
         workflowStore.saveWorkflow(username, stored);
-
         HttpHelper.sendJson(exchange, 201, toSummaryMap(stored));
     }
 
     private void getWorkflow(HttpExchange exchange, String username, String id) throws IOException {
-
         StoredWorkflow wf = workflowStore.getWorkflow(username, id);
-
         if (wf == null) {
             HttpHelper.sendJson(exchange, 404, Map.of(KEY_ERROR, ERROR_NOT_FOUND));
             return;
         }
-
         HttpHelper.sendJson(exchange, 200, toDetailMap(wf));
     }
 
     private void runWorkflow(HttpExchange exchange, String username, String id) throws IOException {
-
         StoredWorkflow wf = workflowStore.getWorkflow(username, id);
-
         if (wf == null) {
             HttpHelper.sendJson(exchange, 404, Map.of(KEY_ERROR, ERROR_NOT_FOUND));
             return;
@@ -203,78 +158,55 @@ public class WorkflowApiHandler implements HttpHandler {
 
         String execId = UUID.randomUUID().toString().substring(0, 8);
         long startTime = System.currentTimeMillis();
-
         List<String> logs = new ArrayList<>();
         String status;
 
+        // Capture stdout during execution to collect task output as logs.
+        // System.setOut is intentional here — it redirects task output into our log capture buffer.
         java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
         java.io.PrintStream capture = new java.io.PrintStream(baos);
-        java.io.PrintStream original = System.out;
+        java.io.PrintStream originalOut = System.out;
 
         try {
             System.setOut(capture);
-
             flowforge.fireTrigger(id);
-
-            System.out.flush();
+            capture.flush();
             status = "COMPLETED";
-
-        } catch (Exception e) {
-
-            System.out.flush();
+        } catch (RuntimeException e) {
+            capture.flush();
             status = "FAILED";
             logs.add("ERROR: " + e.getMessage());
-
         } finally {
-            System.setOut(original);
+            System.setOut(originalOut);
         }
 
         String captured = baos.toString();
-
         if (!captured.isBlank()) {
             logs.addAll(0, Arrays.asList(captured.split("\n")));
         }
 
         long endTime = System.currentTimeMillis();
-
-        ExecutionRecord execRecord = new ExecutionRecord(
-                execId,
-                status,
-                startTime,
-                endTime,
-                logs
-        );
-
+        ExecutionRecord execRecord = new ExecutionRecord(execId, status, startTime, endTime, logs);
         workflowStore.addExecution(username, id, execRecord);
 
-        final String finalStatus = status;
-        final long duration = endTime - startTime;
-
-        LOGGER.info(() ->
-                "[Execute] " + wf.name() +
-                " -> " + finalStatus +
-                " (" + duration + "ms)"
-        );
+        LOGGER.log(Level.INFO, "Execute: {0} -> {1} ({2}ms)",
+                new Object[]{wf.name(), status, endTime - startTime});
 
         HttpHelper.sendJson(exchange, 200, toExecutionMap(execRecord));
     }
 
     private void deleteWorkflow(HttpExchange exchange, String username, String id) throws IOException {
-
-        boolean deleted = workflowStore.deleteWorkflow(username, id);
-
-        if (!deleted) {
+        if (!workflowStore.deleteWorkflow(username, id)) {
             HttpHelper.sendJson(exchange, 404, Map.of(KEY_ERROR, ERROR_NOT_FOUND));
             return;
         }
-
         HttpHelper.sendJson(exchange, 200, Map.of(KEY_SUCCESS, true));
     }
 
+    // --- Mapping helpers ---
+
     private Map<String, Object> toSummaryMap(StoredWorkflow wf) {
-
         Map<String, Object> m = new LinkedHashMap<>();
-
         m.put("id", wf.id());
         m.put("name", wf.name());
         m.put("triggerType", wf.triggerType());
@@ -292,16 +224,13 @@ public class WorkflowApiHandler implements HttpHandler {
             m.put("lastStatus", "NEVER_RUN");
             m.put("lastRunAt", 0);
         }
-
         return m;
     }
 
     private Map<String, Object> toDetailMap(StoredWorkflow wf) {
-
         Map<String, Object> m = toSummaryMap(wf);
 
         List<Map<String, Object>> tasks = new ArrayList<>();
-
         for (TaskInfo ti : wf.tasks()) {
             Map<String, Object> tm = new LinkedHashMap<>();
             tm.put("name", ti.name());
@@ -309,24 +238,18 @@ public class WorkflowApiHandler implements HttpHandler {
             tm.put("params", ti.params());
             tasks.add(tm);
         }
-
         m.put("tasks", tasks);
 
         List<Map<String, Object>> execs = new ArrayList<>();
-
         for (ExecutionRecord er : wf.executions()) {
             execs.add(toExecutionMap(er));
         }
-
         m.put("executions", execs);
-
         return m;
     }
 
     private Map<String, Object> toExecutionMap(ExecutionRecord er) {
-
         Map<String, Object> m = new LinkedHashMap<>();
-
         m.put("executionId", er.executionId());
         m.put("status", er.status());
         m.put("startedAt", er.startedAt());
@@ -334,63 +257,54 @@ public class WorkflowApiHandler implements HttpHandler {
         m.put("durationMs", er.finishedAt() - er.startedAt());
         m.put("logCount", er.logs().size());
         m.put("logs", String.join("\n", er.logs()));
-
         return m;
     }
 
+    // --- JSON task parsing ---
+
     private List<TaskInfo> parseTasksFromJson(String tasksJson) {
-
         List<TaskInfo> tasks = new ArrayList<>();
-
         tasksJson = tasksJson.trim();
-
-        if (!tasksJson.startsWith("[")) return tasks;
-
+        if (!tasksJson.startsWith("[")) {
+            return tasks;
+        }
         tasksJson = tasksJson.substring(1);
-
         if (tasksJson.endsWith("]")) {
             tasksJson = tasksJson.substring(0, tasksJson.length() - 1);
         }
 
         int depth = 0;
         int start = 0;
-
         for (int i = 0; i < tasksJson.length(); i++) {
-
             char c = tasksJson.charAt(i);
-
-            if (c == '{') depth++;
-            else if (c == '}') depth--;
-            else if (c == ',' && depth == 0) {
+            if (c == '{') {
+                depth++;
+            } else if (c == '}') {
+                depth--;
+            } else if (c == ',' && depth == 0) {
                 addParsedTask(tasks, tasksJson.substring(start, i).trim());
                 start = i + 1;
             }
         }
-
         addParsedTask(tasks, tasksJson.substring(start).trim());
-
         return tasks;
     }
 
     private void addParsedTask(List<TaskInfo> tasks, String json) {
-
-        if (json.isEmpty()) return;
-
+        if (json.isEmpty()) {
+            return;
+        }
         Map<String, String> flat = JsonUtil.parseJsonFlat(json);
-
-        String name = flat.get("name");
-        String type = flat.get("type");
-
-        if (name == null || type == null) return;
-
+        String taskName = flat.get("name");
+        String taskType = flat.get("type");
+        if (taskName == null || taskType == null) {
+            return;
+        }
         Map<String, String> params = new HashMap<>();
-
         String paramsStr = flat.get("params");
-
         if (paramsStr != null && paramsStr.startsWith("{")) {
             params = JsonUtil.parseJsonFlat(paramsStr);
         }
-
-        tasks.add(new TaskInfo(name, type, params));
+        tasks.add(new TaskInfo(taskName, taskType, params));
     }
 }

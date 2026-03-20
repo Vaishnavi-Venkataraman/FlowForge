@@ -19,6 +19,9 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 
+/**
+ * Workflow execution engine.
+ */
 public class WorkflowEngine {
 
     private final Map<String, WorkflowDefinition> workflows = new ConcurrentHashMap<>();
@@ -33,10 +36,9 @@ public class WorkflowEngine {
         registerStrategy(new SequentialStrategy());
     }
 
-    public void setPipeline(Pipeline p) { 
-        this.pipeline.set(p); 
+    public void setPipeline(Pipeline p) {
+        this.pipeline.set(p);
     }
-
 
     public void registerStrategy(ExecutionStrategy strategy) {
         strategies.put(strategy.getName(), strategy);
@@ -50,7 +52,6 @@ public class WorkflowEngine {
 
     /**
      * Main execution method — orchestrates pipeline + strategy.
-     * Each phase is extracted into a focused helper method.
      */
     public void executeWorkflow(String workflowId) {
         WorkflowDefinition workflow = findWorkflow(workflowId);
@@ -60,17 +61,13 @@ public class WorkflowEngine {
         }
 
         List<TaskConfig> tasksToExecute = runPipeline(workflow);
-        if (tasksToExecute == null) {
-            return; // Pipeline aborted
+        if (tasksToExecute.isEmpty()) {
+            return;
         }
 
         runWithStrategy(workflow, tasksToExecute);
     }
 
-    /**
-     * Looks up a workflow by ID.
-     * @throws WorkflowNotFoundException if not found
-     */
     private WorkflowDefinition findWorkflow(String workflowId) {
         WorkflowDefinition workflow = workflows.get(workflowId);
         if (workflow == null) {
@@ -81,15 +78,16 @@ public class WorkflowEngine {
 
     /**
      * Runs the pre-execution pipeline. Returns the (possibly enriched) task list,
-     * or null if the pipeline aborted.
+     * or empty list if the pipeline aborted.
      */
     private List<TaskConfig> runPipeline(WorkflowDefinition workflow) {
-        if (pipeline == null) {
+        Pipeline currentPipeline = pipeline.get();
+        if (currentPipeline == null) {
             return workflow.getTasks();
         }
 
         PipelineContext context = new PipelineContext(workflow);
-        PipelineContext result = pipeline.get().execute(context);
+        PipelineContext result = currentPipeline.execute(context);
 
         for (String log : result.getProcessingLog()) {
             eventBus.publish(WorkflowEvent.pipelineLog(workflow.getName(), workflow.getId(), log));
@@ -106,9 +104,6 @@ public class WorkflowEngine {
         return result.getProcessedTasks();
     }
 
-    /**
-     * Executes tasks using the workflow's chosen strategy.
-     */
     private void runWithStrategy(WorkflowDefinition workflow, List<TaskConfig> tasks) {
         ExecutionStrategy strategy = resolveStrategy(workflow.getExecutionStrategyName());
 
