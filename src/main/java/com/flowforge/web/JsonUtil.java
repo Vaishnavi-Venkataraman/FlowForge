@@ -1,131 +1,102 @@
 package com.flowforge.web;
 
-import java.util.*;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.reflect.TypeToken;
+
+import java.lang.reflect.Type;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
 
 /**
- * Minimal JSON serializer/deserializer — no external dependencies.
- * Handles the subset we need: objects, arrays, strings, numbers, booleans.
+ * JSON utility powered by Gson.
+ *
+ * Provides the same public API as the original hand-written parser,
+ * but delegates to Google Gson for robust, standards-compliant JSON handling.
+ * This eliminates the cognitive complexity of manual parsing.
  */
 public final class JsonUtil {
 
+    private static final Gson GSON = new GsonBuilder().disableHtmlEscaping().create();
+
+    private static final Type MAP_TYPE = new TypeToken<LinkedHashMap<String, Object>>() {}.getType();
+
     private JsonUtil() {}
 
-    // --- Serialization ---
-
+    /**
+     * Serializes a Map to a JSON object string.
+     * Used by HttpHelper.sendJson() to build API responses.
+     *
+     * @param map key-value pairs to serialize
+     * @return JSON string, e.g. {"id":"abc","name":"My Workflow"}
+     */
     public static String toJson(Map<String, Object> map) {
-        StringBuilder sb = new StringBuilder("{");
-        boolean first = true;
-        for (Map.Entry<String, Object> entry : map.entrySet()) {
-            if (!first) sb.append(",");
-            sb.append("\"").append(escape(entry.getKey())).append("\":");
-            sb.append(valueToJson(entry.getValue()));
-            first = false;
-        }
-        sb.append("}");
-        return sb.toString();
+        return GSON.toJson(map);
     }
 
+    /**
+     * Serializes a list of Maps to a JSON array string.
+     * Used by WorkflowApiHandler.listWorkflows() to return workflow lists.
+     *
+     * @param list list of maps to serialize
+     * @return JSON array string
+     */
     public static String toJsonArray(List<Map<String, Object>> list) {
-        StringBuilder sb = new StringBuilder("[");
-        boolean first = true;
-        for (Map<String, Object> item : list) {
-            if (!first) sb.append(",");
-            sb.append(toJson(item));
-            first = false;
-        }
-        sb.append("]");
-        return sb.toString();
+        return GSON.toJson(list);
     }
 
-    private static String valueToJson(Object value) {
-        if (value == null) return "null";
-        if (value instanceof String s) return "\"" + escape(s) + "\"";
-        if (value instanceof Number || value instanceof Boolean) return value.toString();
-        if (value instanceof Map) {
-            @SuppressWarnings("unchecked")
-            Map<String, Object> map = (Map<String, Object>) value;
-            return toJson(map);
-        }
-        if (value instanceof List) {
-            @SuppressWarnings("unchecked")
-            List<Map<String, Object>> list = (List<Map<String, Object>>) value;
-            return toJsonArray(list);
-        }
-        return "\"" + escape(value.toString()) + "\"";
-    }
-
-    private static String escape(String s) {
-        return s.replace("\\", "\\\\")
-                .replace("\"", "\\\"")
-                .replace("\n", "\\n")
-                .replace("\r", "\\r")
-                .replace("\t", "\\t");
-    }
-
-    // --- Deserialization (simple key-value pairs from POST body) ---
-
-    public static Map<String, String> parseJsonFlat(String json) { // NOSONAR - complexity is inherent to JSON parsing without library
+    /**
+     * Parses a JSON object string into a flat Map of String key-value pairs.
+     * Used by HttpHelper.parseBody() and WorkflowApiHandler.addParsedTask().
+     *
+     * Handles nested objects by keeping them as raw JSON strings in the map,
+     * preserving backward compatibility with the original hand-written parser.
+     *
+     * @param json JSON object string
+     * @return flat map of string key-value pairs
+     */
+    public static Map<String, String> parseJsonFlat(String json) {
         Map<String, String> result = new LinkedHashMap<>();
+
+        if (json == null || json.isBlank()) {
+            return result;
+        }
+
         json = json.trim();
-        if (json.startsWith("{")) json = json.substring(1);
-        if (json.endsWith("}")) json = json.substring(0, json.length() - 1);
+        if (!json.startsWith("{")) {
+            return result;
+        }
 
-        int i = 0;
-        while (i < json.length()) { // NOSONAR
-            i = skipWhitespace(json, i);
-            if (i >= json.length()) break;  // NOSONAR
-
-            // Parse key
-            if (json.charAt(i) != '"') { i++; continue; } // NOSONAR
-            int keyStart = i + 1;
-            int keyEnd = json.indexOf('"', keyStart);
-            if (keyEnd < 0) break; // NOSONAR
-            String key = json.substring(keyStart, keyEnd);
-
-            i = keyEnd + 1;
-            i = skipWhitespace(json, i);
-            if (i >= json.length() || json.charAt(i) != ':') break; // NOSONAR
-            i++;
-            i = skipWhitespace(json, i);
-
-            // Parse value
-            String value;
-            if (json.charAt(i) == '"') {
-                int valStart = i + 1;
-                int valEnd = findUnescapedQuote(json, valStart);
-                value = json.substring(valStart, valEnd).replace("\\\"", "\"").replace("\\n", "\n");
-                i = valEnd + 1;
-            } else if (json.charAt(i) == '[') {
-                int depth = 1;
-                int arrStart = i;
-                i++;
-                while (i < json.length() && depth > 0) {
-                    if (json.charAt(i) == '[') depth++;
-                    else if (json.charAt(i) == ']') depth--;
-                    i++;
-                }
-                value = json.substring(arrStart, i);
-            } else {
-                int valStart = i;
-                while (i < json.length() && json.charAt(i) != ',' && json.charAt(i) != '}') i++;
-                value = json.substring(valStart, i).trim();
+        try {
+            Map<String, Object> parsed = GSON.fromJson(json, MAP_TYPE);
+            if (parsed == null) {
+                return result;
             }
 
-            result.put(key, value);
-            if (i < json.length() && json.charAt(i) == ',') i++;
+            for (Map.Entry<String, Object> entry : parsed.entrySet()) {
+                Object value = entry.getValue();
+                if (value == null) {
+                    result.put(entry.getKey(), "null");
+                } else if (value instanceof Map || value instanceof List) {
+                    // Nested objects/arrays: keep as raw JSON string
+                    result.put(entry.getKey(), GSON.toJson(value));
+                } else if (value instanceof Number num) {
+                    // Gson parses all numbers as Double — convert to clean string
+                    if (num.doubleValue() == num.longValue()) {
+                        result.put(entry.getKey(), String.valueOf(num.longValue()));
+                    } else {
+                        result.put(entry.getKey(), num.toString());
+                    }
+                } else {
+                    result.put(entry.getKey(), value.toString());
+                }
+            }
+        } catch (Exception e) {
+            // Malformed JSON — return empty map (same behavior as original parser)
+            return new LinkedHashMap<>();
         }
+
         return result;
-    }
-
-    private static int skipWhitespace(String s, int i) {
-        while (i < s.length() && Character.isWhitespace(s.charAt(i))) i++;
-        return i;
-    }
-
-    private static int findUnescapedQuote(String s, int start) {
-        for (int i = start; i < s.length(); i++) {
-            if (s.charAt(i) == '"' && (i == 0 || s.charAt(i - 1) != '\\')) return i;
-        }
-        return s.length();
     }
 }
