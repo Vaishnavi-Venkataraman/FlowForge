@@ -2,12 +2,8 @@ package com.flowforge.web;
 
 import java.io.IOException;
 import java.io.PrintWriter;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
-import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -15,8 +11,10 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import org.mindrot.jbcrypt.BCrypt;
+
 /**
- * File-persisted user store with password validation and session management.
+ * File-persisted user store with BCrypt password hashing and session management.
  */
 public class UserStore {
 
@@ -33,6 +31,9 @@ public class UserStore {
         loadFromDisk();
     }
 
+    /**
+     * Registers a new user. Returns error message or null on success.
+     */
     public String register(String username, String password, String displayName) {
         if (username == null || username.isBlank()) {
             return "Username is required";
@@ -52,7 +53,7 @@ public class UserStore {
             return pwError;
         }
 
-        String hash = hashPassword(password);
+        String hash = BCrypt.hashpw(password, BCrypt.gensalt());
         users.put(username.toLowerCase(), new UserRecord(
                 username.toLowerCase(), hash,
                 displayName != null && !displayName.isBlank() ? displayName : username,
@@ -63,8 +64,7 @@ public class UserStore {
     }
 
     /**
-     * Validates password strength using simple char-by-char checks
-     * instead of regex to avoid ReDoS (polynomial backtracking) vulnerabilities.
+     * Validates password strength using char-by-char checks.
      */
     public static String validatePassword(String password) {
         if (password == null || password.length() < 6) {
@@ -97,6 +97,10 @@ public class UserStore {
         return null;
     }
 
+    /**
+     * Authenticates a user. Returns session ID or null on failure.
+     * Uses BCrypt.checkpw for secure password verification.
+     */
     public String login(String username, String password) {
         if (username == null || password == null) {
             return null;
@@ -105,7 +109,7 @@ public class UserStore {
         if (user == null) {
             return null;
         }
-        if (!user.passwordHash().equals(hashPassword(password))) {
+        if (!BCrypt.checkpw(password, user.passwordHash())) {
             return null;
         }
 
@@ -128,6 +132,8 @@ public class UserStore {
     public void logout(String sessionId) {
         sessions.remove(sessionId);
     }
+
+    // --- Persistence ---
 
     private void saveToDisk() {
         try {
@@ -155,19 +161,9 @@ public class UserStore {
                     users.put(parts[0], new UserRecord(parts[0], parts[1], parts[2], Long.parseLong(parts[3])));
                 }
             }
-            LOGGER.info(() -> "Loaded " + users.size() + " users from disk");
+            LOGGER.log(Level.INFO, "Loaded {0} users from disk", users.size());
         } catch (IOException e) {
             LOGGER.log(Level.SEVERE, "Failed to load users", e);
-        }
-    }
-
-    private String hashPassword(String password) {
-        try {
-            MessageDigest digest = MessageDigest.getInstance("SHA-256");
-            byte[] hash = digest.digest(password.getBytes(StandardCharsets.UTF_8));
-            return HexFormat.of().formatHex(hash);
-        } catch (NoSuchAlgorithmException e) {
-            throw new IllegalStateException("SHA-256 not available", e);
         }
     }
 }
