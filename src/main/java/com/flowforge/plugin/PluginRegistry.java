@@ -97,9 +97,8 @@ public class PluginRegistry {
      */
     public void stopAll() {
         List<String> ids = new ArrayList<>(plugins.keySet());
-        Collections.reverse(ids);
 
-        for (String id : ids) {
+        for (String id : reversed(ids)) {
             Plugin plugin = plugins.get(id);
             if (states.get(id) == PluginState.STARTED) {
                 try {
@@ -112,6 +111,12 @@ public class PluginRegistry {
                 }
             }
         }
+    }
+
+    private static <T> List<T> reversed(List<T> list) {
+        List<T> reversed = new ArrayList<>(list);
+        Collections.reverse(reversed);
+        return reversed;
     }
 
     /**
