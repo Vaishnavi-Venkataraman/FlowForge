@@ -95,23 +95,35 @@ public class PluginRegistry {
     /**
      * Stops all started plugins (in reverse order for clean shutdown).
      */
-        public void stopAll() {
-            List<String> ids = new ArrayList<>(plugins.keySet());
+    public void stopAll() {
+        List<String> ids = new ArrayList<>(plugins.keySet());
+        Collections.reverse(ids);
 
-            for (String id : ids.reversed()) {   
-                Plugin plugin = plugins.get(id);
-                if (states.get(id) == PluginState.STARTED) {
-                    try {
-                        plugin.stop();
-                        states.put(id, PluginState.STOPPED);
-                        LOGGER.info(() -> "[PluginRegistry] Stopped: " + plugin.getName());
-                    } catch (Exception e) {
-                        LOGGER.warning(() -> "[PluginRegistry] Error stopping " + plugin.getName()
-                                + ": " + e.getMessage());
-                    }
+        for (String id : ids) {
+            Plugin plugin = plugins.get(id);
+            if (states.get(id) == PluginState.STARTED) {
+                try {
+                    plugin.stop();
+                    states.put(id, PluginState.STOPPED);
+                    LOGGER.info(() -> "[PluginRegistry] Stopped: " + plugin.getName());
+                } catch (Exception e) {
+                    LOGGER.warning(() -> "[PluginRegistry] Error stopping " + plugin.getName()
+                            + ": " + e.getMessage());
                 }
             }
         }
+    }
+
+    /**
+     * Lists the plugin names that are registered.
+     */
+    public List<String> listPlugins() {
+        List<String> names = new ArrayList<>();
+        for (Plugin plugin : plugins.values()) {
+            names.add(plugin.getName());
+        }
+        return Collections.unmodifiableList(names);
+    }
 
     /**
      * Returns the state of a plugin.
