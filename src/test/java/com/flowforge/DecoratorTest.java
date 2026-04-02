@@ -15,6 +15,8 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class DecoratorTest {
 
+    private static final TaskConfig DELAY_CONFIG = new TaskConfig("test-delay", "delay", Map.of("seconds", "0"));
+
     private Task createDelayTask() {
         return new DelayTask("test-delay");
     }
@@ -28,31 +30,28 @@ class DecoratorTest {
     @Test
     void loggingDecoratorShouldExecute() {
         Task decorated = new LoggingDecorator(createDelayTask());
-        TaskConfig config = new TaskConfig("test-delay", "delay", Map.of("seconds", "0"));
-        TaskResult result = decorated.execute(config);
+        TaskResult result = decorated.execute(DELAY_CONFIG);
         assertTrue(result.isSuccess());
     }
 
     @Test
     void retryDecoratorShouldSucceedOnFirstTry() {
         Task decorated = new RetryDecorator(createDelayTask(), 3, 10);
-        TaskConfig config = new TaskConfig("test-delay", "delay", Map.of("seconds", "0"));
-        TaskResult result = decorated.execute(config);
+        TaskResult result = decorated.execute(DELAY_CONFIG);
         assertTrue(result.isSuccess());
     }
 
     @Test
     void timeoutDecoratorShouldSucceedWithinLimit() {
         Task decorated = new TimeoutDecorator(createDelayTask(), 5000);
-        TaskConfig config = new TaskConfig("test-delay", "delay", Map.of("seconds", "0"));
-        TaskResult result = decorated.execute(config);
+        TaskResult result = decorated.execute(DELAY_CONFIG);
         assertTrue(result.isSuccess());
     }
 
     @Test
     void timeoutDecoratorShouldRejectInvalidTimeout() {
-        assertThrows(IllegalArgumentException.class,
-                () -> new TimeoutDecorator(createDelayTask(), -1));
+        Task task = createDelayTask();
+        assertThrows(IllegalArgumentException.class, () -> new TimeoutDecorator(task, -1));
     }
 
     @Test
@@ -61,8 +60,7 @@ class DecoratorTest {
         task = new LoggingDecorator(task);
         task = new RetryDecorator(task, 2, 10);
         task = new TimeoutDecorator(task, 5000);
-        TaskConfig config = new TaskConfig("test-delay", "delay", Map.of("seconds", "0"));
-        TaskResult result = task.execute(config);
+        TaskResult result = task.execute(DELAY_CONFIG);
         assertTrue(result.isSuccess());
     }
 }
