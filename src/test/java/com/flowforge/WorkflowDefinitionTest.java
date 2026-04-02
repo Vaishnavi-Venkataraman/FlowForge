@@ -8,25 +8,22 @@ import com.flowforge.model.WorkflowStatus;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-/**
- * Tests for WorkflowDefinition — state machine transitions.
- */
 class WorkflowDefinitionTest {
 
     private WorkflowDefinition workflow;
+    private static final TriggerConfig MANUAL_TRIGGER = new TriggerConfig(TriggerType.MANUAL, "");
+    private static final List<TaskConfig> ONE_TASK = List.of(
+            new TaskConfig("t1", "http", Map.of("url", "http://x", "method", "GET")));
 
     @BeforeEach
     void setUp() {
-        workflow = new WorkflowDefinition(
-                "Test WF",
-                new TriggerConfig(TriggerType.MANUAL, ""),
-                List.of(new TaskConfig("t1", "http", Map.of("url", "http://x", "method", "GET")))
-        );
+        workflow = new WorkflowDefinition("Test WF", MANUAL_TRIGGER, ONE_TASK);
     }
 
     @Test
@@ -64,28 +61,24 @@ class WorkflowDefinitionTest {
 
     @Test
     void shouldNotCompleteFromCreated() {
-        assertThrows(IllegalStateException.class, () -> workflow.markCompleted());
+        assertThrows(IllegalStateException.class, workflow::markCompleted);
     }
 
     @Test
     void shouldNotResetFromRunning() {
         workflow.markRunning();
-        assertThrows(IllegalStateException.class, () -> workflow.reset());
+        assertThrows(IllegalStateException.class, workflow::reset);
     }
 
     @Test
     void shouldRejectNullName() {
-        assertThrows(IllegalArgumentException.class, () ->
-                new WorkflowDefinition(null,
-                        new TriggerConfig(TriggerType.MANUAL, ""),
-                        List.of(new TaskConfig("t1", "http", Map.of()))));
+        assertThrows(IllegalArgumentException.class,
+                () -> new WorkflowDefinition(null, MANUAL_TRIGGER, ONE_TASK));
     }
 
     @Test
     void shouldRejectEmptyTasks() {
-        assertThrows(IllegalArgumentException.class, () ->
-                new WorkflowDefinition("WF",
-                        new TriggerConfig(TriggerType.MANUAL, ""),
-                        List.of()));
+        assertThrows(IllegalArgumentException.class,
+                () -> new WorkflowDefinition("WF", MANUAL_TRIGGER, Collections.emptyList()));
     }
 }

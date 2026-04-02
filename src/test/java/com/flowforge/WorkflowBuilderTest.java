@@ -6,9 +6,6 @@ import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-/**
- * Tests for Builder pattern — WorkflowBuilder.
- */
 class WorkflowBuilderTest {
 
     @Test
@@ -18,7 +15,6 @@ class WorkflowBuilderTest {
                 .manualTrigger()
                 .addHttpGet("fetch", "https://api.test.com")
                 .build();
-
         assertEquals("Test Workflow", wf.getName());
         assertEquals(1, wf.getTasks().size());
         assertEquals("sequential", wf.getExecutionStrategyName());
@@ -34,7 +30,6 @@ class WorkflowBuilderTest {
                 .addEmailTask("step3", "user@test.com", "Done")
                 .parallel()
                 .build();
-
         assertEquals(3, wf.getTasks().size());
         assertEquals("parallel", wf.getExecutionStrategyName());
         assertEquals("CRON", wf.getTriggerTypeName());
@@ -48,7 +43,6 @@ class WorkflowBuilderTest {
                 .manualTrigger()
                 .addDelayTask("wait", 1)
                 .build();
-
         assertEquals("my-fixed-id-123", wf.getId());
     }
 
@@ -59,35 +53,31 @@ class WorkflowBuilderTest {
                 .manualTrigger()
                 .addDelayTask("wait", 1)
                 .build();
-
         assertNotNull(wf.getId());
         assertFalse(wf.getId().isBlank());
     }
 
     @Test
     void shouldFailWithoutName() {
-        assertThrows(IllegalStateException.class, () ->
-                WorkflowBuilder.create()
-                        .manualTrigger()
-                        .addDelayTask("wait", 1)
-                        .build());
+        WorkflowBuilder builder = WorkflowBuilder.create()
+                .manualTrigger()
+                .addDelayTask("wait", 1);
+        assertThrows(IllegalStateException.class, builder::build);
     }
 
     @Test
     void shouldFailWithoutTrigger() {
-        assertThrows(IllegalStateException.class, () ->
-                WorkflowBuilder.create()
-                        .name("No Trigger")
-                        .addDelayTask("wait", 1)
-                        .build());
+        WorkflowBuilder builder = WorkflowBuilder.create()
+                .name("No Trigger")
+                .addDelayTask("wait", 1);
+        assertThrows(IllegalStateException.class, builder::build);
     }
 
     @Test
     void shouldFailWithoutTasks() {
-        assertThrows(IllegalStateException.class, () ->
-                WorkflowBuilder.create()
-                        .name("No Tasks")
-                        .manualTrigger()
-                        .build());
+        WorkflowBuilder builder = WorkflowBuilder.create()
+                .name("No Tasks")
+                .manualTrigger();
+        assertThrows(IllegalStateException.class, builder::build);
     }
 }
