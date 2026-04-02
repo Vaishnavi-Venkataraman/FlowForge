@@ -20,6 +20,7 @@ class WorkflowDefinitionTest {
     private static final TriggerConfig MANUAL_TRIGGER = new TriggerConfig(TriggerType.MANUAL, "");
     private static final List<TaskConfig> ONE_TASK = List.of(
             new TaskConfig("t1", "http", Map.of("url", "http://x", "method", "GET")));
+    private static final List<TaskConfig> EMPTY_TASKS = Collections.emptyList();
 
     @BeforeEach
     void setUp() {
@@ -79,6 +80,6 @@ class WorkflowDefinitionTest {
     @Test
     void shouldRejectEmptyTasks() {
         assertThrows(IllegalArgumentException.class,
-                () -> new WorkflowDefinition("WF", MANUAL_TRIGGER, Collections.emptyList()));
+                () -> new WorkflowDefinition("WF", MANUAL_TRIGGER, EMPTY_TASKS));
     }
 }
