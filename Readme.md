@@ -1,10 +1,6 @@
 # FlowForge — Intelligent Workflow Automation Platform
 
-A Java 21 Zapier-lite workflow automation engine with a **web dashboard**,
-demonstrating **11 design patterns**, **5 architectural patterns**,
-progressive **refactoring**, and **static code analysis** via SonarCloud.
-
----
+A Java 21 Zapier-lite workflow automation engine with a React 18 web dashboard, demonstrating **design patterns**, **architectural patterns**, **frameworks**, **SOLID principles**, progressive **refactoring**, and **static code analysis** via SonarCloud.
 
 ## Quick Start
 
@@ -13,119 +9,165 @@ mvn clean compile
 mvn exec:java
 ```
 
-Open **http://localhost:8080** — Sign up, create workflows, run them, view logs.
-Data persists in `data/` folder across restarts.
+Open **http://localhost:8080** — Sign up, create workflows, run them, view execution logs.
+Data persists in `data/` folder across restarts. See **USER_MANUAL.md** for example workflows.
 
-See **USER_MANUAL.md** for detailed examples of every workflow type.
+## Frameworks & Technologies
 
----
+| Framework | Version | Purpose |
+|-----------|---------|---------|
+| Java | 21 | Core language |
+| Maven | 3.9+ | Build tool |
+| React | 18 | Frontend UI (CDN, component-based SPA) |
+| Gson | 2.11.0 | JSON serialization/deserialization |
+| jBCrypt | 0.4 | Password hashing (industry-standard) |
+| JUnit 5 | 5.11.3 | Unit testing framework |
+| Mockito | 5.14.2 | Mocking framework for tests |
+| JaCoCo | 0.8.12 | Code coverage reporting |
+| Checkstyle | 10.20.1 | Coding standards enforcement |
+| PMD | 7.7.0 | Code quality analysis |
+| SonarCloud | — | Comprehensive static analysis dashboard |
 
 ## Design Patterns
 
-| # | Pattern | Class(es) | Purpose |
-|---|---------|-----------|---------|
-| 1 | **Factory Method** | `TaskFactory` | Creates task instances by type name at runtime without hardcoding constructors |
-| 2 | **Builder** | `WorkflowBuilder` | Fluent step-by-step construction of complex `WorkflowDefinition` objects |
-| 3 | **Singleton** | `FlowForgeFacade` (Holder idiom) | One engine instance per JVM — thread-safe lazy initialization |
-| 4 | **Command** | `Task` interface | Encapsulates workflow actions as objects with uniform `execute()` contract |
-| 5 | **Strategy** | `ExecutionStrategy` → `SequentialStrategy`, `ParallelStrategy`, `ConditionalStrategy` | Pluggable execution algorithms — switch between sequential, parallel, or conditional at runtime |
-| 6 | **Observer** | `EventBus`, `EventListener`, `LoggingListener` | Reactive event notification — decouple workflow engine from logging/monitoring |
-| 7 | **Template Method** | `AbstractTask` → `HttpTask`, `EmailTask`, `DatabaseTask`, etc. | Fixed lifecycle (validate → doExecute → cleanup) with customizable steps |
-| 8 | **Chain of Responsibility** | `PipelineHandler` → `ValidationHandler`, `AuthorizationHandler`, `RateLimitHandler`, `TransformHandler` | Pre-execution pipeline where each handler decides to process or abort |
-| 9 | **Decorator** | `TaskDecorator` → `RetryDecorator`, `LoggingDecorator`, `TimeoutDecorator` | Dynamically wrap tasks with retry, logging, timeout without modifying task code |
-| 10 | **Adapter** | `ExternalService` → `RestServiceAdapter`, `SoapServiceAdapter`, `CloudStorageAdapter` | Unified interface for REST, SOAP, and cloud storage — protocol differences hidden |
-| 11 | **Facade** | `FlowForgeFacade` | Single simplified API hiding 10+ subsystems (engine, services, plugins, pipeline) |
+| # | Pattern | Category | Class(es) | Purpose |
+|---|---------|----------|-----------|---------|
+| 1 | Factory Method | Creational | `TaskFactory` | Creates task instances by type name at runtime |
+| 2 | Builder | Creational | `WorkflowBuilder` | Fluent construction of complex WorkflowDefinition |
+| 3 | Singleton | Creational | `FlowForgeFacade` (Holder idiom) | One engine instance per JVM, thread-safe |
+| 4 | Command | Behavioral | `Task` interface | Encapsulates actions as objects with `execute()` |
+| 5 | Strategy | Behavioral | `ExecutionStrategy` → Sequential, Parallel, Conditional | Pluggable execution algorithms |
+| 6 | Observer | Behavioral | `EventBus` + `EventListener` + `LoggingListener` | Reactive event notification |
+| 7 | Template Method | Behavioral | `AbstractTask` → HttpTask, EmailTask, etc. | Fixed lifecycle: validate → doExecute → cleanup |
+| 8 | Chain of Responsibility | Behavioral | `PipelineHandler` → Validation, Auth, RateLimit, Transform | Pre-execution handler pipeline |
+| 9 | Decorator | Structural | `TaskDecorator` → Retry, Logging, Timeout | Dynamic task enhancement without modifying code |
+| 10 | Adapter | Structural | `ExternalService` → REST, SOAP, CloudStorage adapters | Unified interface for different protocols |
+| 11 | Facade | Structural | `FlowForgeFacade` | Single simplified API hiding 10+ subsystems |
 
 ## Architectural Patterns
 
-| # | Pattern | Where | How |
-|---|---------|-------|-----|
-| 1 | **Event-Driven** | `EventBus` + `WorkflowEvent` + listeners | Workflow lifecycle events published and consumed reactively |
-| 2 | **Pipes & Filters** | `Pipeline` + `PipelineHandler` chain | Request flows through validation → auth → rate-limit → transform filters |
-| 3 | **Microkernel** | `Plugin` + `PluginContext` + `PluginRegistry` | Core is minimal; features added via plugins (FileOperationsPlugin registers ftp/file_copy/file_delete tasks) |
-| 4 | **Microservices** | `ServiceBus` + `ExecutionService`, `NotificationService`, `AnalyticsService`, `AuditService`, `TriggerService` | Five independent services communicate via message bus — simulates distributed architecture in-process |
-| 5 | **Pub-Sub** | `ServiceBus`, `ServiceMessage` | Asynchronous inter-service messaging — services communicate via named channels without direct coupling |
+| # | Pattern | Implementation | How It Works |
+|---|---------|----------------|-------------|
+| 1 | Event-Driven | `EventBus` + `WorkflowEvent` | Workflow lifecycle events published and consumed reactively |
+| 2 | Pipes & Filters | `Pipeline` + `PipelineHandler` chain | Request flows through Validation → Auth → RateLimit → Transform |
+| 3 | Microkernel | `Plugin` + `PluginContext` + `PluginRegistry` | Core is minimal; features added via plugins (FileOperationsPlugin) |
+| 4 | Microservices | `ServiceBus` + 5 services | Independent services communicate via message bus channels |
+| 5 | Pub-Sub | `ServiceBus` + `ServiceMessage` | Asynchronous inter-service messaging |
 
----
+## Design Principles
 
-## Commit History
+| Principle | Where Applied |
+|-----------|--------------|
+| Single Responsibility | Each class has one job: TaskFactory creates, Pipeline chains, EventBus distributes |
+| Open/Closed | New task types via `registerTaskType()`, new strategies, plugins, adapters — all additive |
+| Liskov Substitution | All ExecutionStrategy and Task implementations are interchangeable |
+| Interface Segregation | Focused interfaces: Task, ExecutionStrategy, PipelineHandler, Plugin, ExternalService |
+| Dependency Inversion | Engine depends on Strategy interface, not concrete. Task depends on ExternalService interface, not REST/SOAP |
+| DRY | WorkflowBuildHelper eliminates duplicate workflow construction logic |
 
-| # | Commit | What Changed |
-|---|--------|-------------|
-| 1 | Naive monolithic God class | Intentionally bad starting point |
-| 2 | Domain models + interfaces | SRP, OCP — clean separation |
-| 3 | Task system | Command + Factory patterns |
-| 4 | Execution strategies | Strategy pattern |
-| 5 | Event system | Observer + Pub-Sub |
-| 6 | Workflow construction | Builder pattern |
-| 7 | Task lifecycle + wrappers | Template Method + Decorator |
-| 8 | Pre-execution pipeline | Chain of Responsibility + Pipes & Filters |
-| 9 | Plugin system | Microkernel architecture |
-| 10 | External integrations | Adapter pattern |
-| 11 | Service boundaries | Microservices architecture |
-| 12 | Cleanup redundancy | Removed 4 redundant files, re-wired 5 |
-| 13 | Simplified API | Singleton + Facade |
-| 14 | SOLID refactoring | Guard clauses, thread safety, Extract Method |
-| 15 | Web UI + persistence | HTTP server, SPA, file-based storage, dark mode |
-| 16 | Static analysis config | Checkstyle, PMD, SonarCloud |
+## Refactoring
 
----
+### Code Refactoring
+
+| Technique | Where | Change |
+|-----------|-------|--------|
+| Extract Method | WorkflowEngine | 1 giant method → findWorkflow + runPipeline + runWithStrategy + publishTaskResults |
+| Encapsulate Field | WorkflowDefinition | Public setStatus → guarded markRunning/markCompleted/markFailed |
+| Guard Clause | WorkflowDefinition | Nested if/else → early-return with IllegalStateException |
+| Thread Safety | WorkflowEngine, TaskFactory | HashMap → ConcurrentHashMap, volatile → AtomicReference |
+
+### Design Refactoring
+
+| Change | What |
+|--------|------|
+| Remove Redundancy | Deleted 4 files replaced by microservices |
+| Introduce Facade | Main.java reduced from 206 → 60 lines |
+| Introduce Singleton | Holder-idiom ensures one engine per JVM |
+
+### Framework Refactoring
+
+| Change | What |
+|--------|------|
+| Hand-written JSON → Gson | Eliminated cognitive complexity 32 |
+| SHA-256 → BCrypt | Industry-standard adaptive password hashing |
+| System.out → java.util.logging | ~90 occurrences migrated to proper logging |
+| Vanilla JS → React 18 | Component-based architecture with hooks |
+
+## Static Code Analysis
+
+| Metric | Before Refactoring | After Refactoring |
+|--------|-------------------|------------------|
+| Bugs | 2 (BLOCKER) | 0 |
+| Vulnerabilities | 0 | 0 |
+| Code Smells | 174 | ~3 (Minor/Info) |
+| Security Hotspots | 5 | 0 (reviewed as Safe) |
+| Duplications | 4.6% | 1.8% |
+| Unit Tests | 0 | 130+ (all passing) |
+| Coverage | 0% | 52% line / 39% branch |
 
 ## Web UI Features
 
-- **Sign Up / Sign In** with password validation (6+ chars, uppercase, number, symbol)
-- **Dark mode** toggle (persisted across sessions)
-- **Dashboard** with stats (workflows, executions, success rate)
-- **Workflow builder** with 9 task types and type-specific parameter fields
-- **Execution history** with expandable color-coded logs (blue=pipeline, green=success, red=error, orange=warning)
-- **File-based persistence** — users, workflows, and execution history survive restarts
+- Sign Up / Sign In with BCrypt password hashing and validation
+- Dark mode toggle (persisted across sessions)
+- Dashboard with stats (workflows, executions, success rate)
+- Workflow builder with 9 task types and type-specific parameter fields
+- Execution history with expandable color-coded logs
+- File-based persistence — survives restarts
+- React 18 component architecture with hooks
 
-### Task Types Available in UI
+### Task Types
 
-| Type | Description | Parameters |
-|------|-------------|------------|
-| `http` | HTTP request | url, method |
-| `email` | Send email | to, subject |
-| `transform` | Data transformation | input, operation |
-| `database` | SQL query | query |
-| `delay` | Wait N seconds | seconds |
-| `ftp` | FTP transfer | host, file |
-| `file_copy` | Copy file | source, destination |
-| `file_delete` | Delete file | path |
-| `external_service` | Call REST/SOAP/S3 adapter | serviceId, operation, path |
-
----
+| Type | Parameters |
+|------|-----------|
+| http | url, method |
+| email | to, subject |
+| transform | input, operation |
+| database | query |
+| delay | seconds |
+| ftp | host, file |
+| file_copy | source, destination |
+| file_delete | path |
+| external_service | serviceId, operation, path |
 
 ## Architecture
 
 ```
-Browser (SPA) ──HTTP──> WebServer ──> AuthHandler / WorkflowApiHandler
+Browser (React SPA) ──HTTP──> WebServer ──> AuthHandler / WorkflowApiHandler
+                                                │
+                                          FlowForgeFacade (Singleton + Facade)
+                                                │
+                      ┌─────────────────────────┼─────────────────────────┐
+                      │                         │                         │
+                 TriggerService          ExecutionService          NotificationService
+                      │                 (WorkflowEngine)          AnalyticsService
+                      │                         │                 AuditService
+                      └────── ServiceBus ───────┘
+                                (Pub-Sub / Microservices)
+                                                │
+                      ┌─────────────────────────┼─────────────────────────┐
+                      │                         │                         │
+                  Pipeline                 TaskFactory                EventBus
+                (Chain of Resp.          (Factory+Command)           (Observer)
+                 Pipes&Filters)            │       │
+                                      Decorators  Strategies
+                                      (Decorator) (Strategy)
                                           │
-                                    FlowForgeFacade (Singleton + Facade)
+                                    AbstractTask
+                                  (Template Method)
                                           │
-                    ┌─────────────────────┼──────────────────────┐
-                    │                     │                      │
-               TriggerService      ExecutionService        NotificationService
-                    │              (WorkflowEngine)        AnalyticsService
-                    │                     │                AuditService
-                    └──── ServiceBus ─────┘
-                              (Pub-Sub / Microservices)
-                                          │
-                    ┌─────────────────────┼──────────────────────┐
-                    │                     │                      │
-                Pipeline            TaskFactory              EventBus
-              (Chain of Resp.     (Factory+Command)         (Observer)
-               Pipes&Filters)       │       │
-                                Decorators  Strategies
-                                (Decorator) (Strategy)
-                                    │
-                              AbstractTask
-                            (Template Method)
-                                    │
-                    ┌───────────────┼───────────────┐
-                    │               │               │
-              PluginRegistry   ServiceRegistry   Domain Models
-              (Microkernel)    (Adapter:         (WorkflowDefinition
-               FileOpsPlugin    REST/SOAP/S3)     TaskConfig, etc.)
+                      ┌───────────────────┼───────────────────┐
+                      │                   │                   │
+                PluginRegistry      ServiceRegistry      Domain Models
+                (Microkernel)       (Adapter: REST/      (WorkflowDefinition
+                 FileOpsPlugin       SOAP/S3)             TaskConfig, etc.)
 ```
----
+
+## Running Tests & Analysis
+
+```bash
+mvn clean test                          # Run 130+ unit tests
+mvn jacoco:report                       # Coverage → target/site/jacoco/index.html
+mvn checkstyle:checkstyle               # Standards → target/site/checkstyle.html
+mvn pmd:pmd                             # Quality → target/site/pmd.html
+git push                                # SonarCloud auto-analyzes on push
+```
