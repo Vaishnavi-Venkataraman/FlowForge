@@ -162,7 +162,7 @@ public class WorkflowApiHandler implements HttpHandler {
         String execId = UUID.randomUUID().toString().substring(0, 8);
         long startTime = System.currentTimeMillis();
         List<String> logs = new ArrayList<>();
-        String status;
+        String status = "COMPLETED";
 
         // Capture BOTH stdout AND java.util.logging output during execution.
         // Tasks use LOGGER.info() so we attach a temporary handler to the root logger.
@@ -174,13 +174,10 @@ public class WorkflowApiHandler implements HttpHandler {
 
         try {
             flowforge.fireTrigger(id);
-            logCapture.flush();
-            status = "COMPLETED";
         } catch (RuntimeException e) {
-            logCapture.flush();
-            status = "FAILED";
             logs.add("ERROR: " + e.getMessage());
         } finally {
+            logCapture.flush();
             rootLogger.removeHandler(logCapture);
             logCapture.close();
         }
@@ -189,6 +186,14 @@ public class WorkflowApiHandler implements HttpHandler {
         if (!captured.isBlank()) {
             logs.addAll(0, Arrays.asList(captured.split("\\r?\\n")));
         }
+
+        // Determine status from captured logs — fireTrigger() is async via ServiceBus
+        // so exceptions are swallowed. We detect failure by scanning the log output.
+        boolean hasFailed = logs.stream().anyMatch(l ->
+                l.contains("WORKFLOW_FAILED") || l.contains("FAILURE") || l.contains("FAILED"));
+        boolean hasCompleted = logs.stream().anyMatch(l ->
+                l.contains("WORKFLOW_COMPLETED") || l.contains("EXECUTION_COMPLETE"));
+        status = hasFailed ? "FAILED" : (hasCompleted ? "COMPLETED" : "COMPLETED");
 
         long endTime = System.currentTimeMillis();
         ExecutionRecord execRecord = new ExecutionRecord(execId, status, startTime, endTime, logs);
