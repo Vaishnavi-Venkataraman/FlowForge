@@ -29,6 +29,8 @@ public class WorkflowApiHandler implements HttpHandler {
     private static final String KEY_SUCCESS = "success";
     private static final String ERROR_NOT_FOUND = "Workflow not found";
     private static final String ERROR_NOT_AUTHENTICATED = "Not authenticated";
+    private static final String STATUS_COMPLETED = "COMPLETED";
+    private static final String STATUS_FAILED = "FAILED";
 
     private final UserStore userStore;
     private final WorkflowStore workflowStore;
@@ -162,7 +164,7 @@ public class WorkflowApiHandler implements HttpHandler {
         String execId = UUID.randomUUID().toString().substring(0, 8);
         long startTime = System.currentTimeMillis();
         List<String> logs = new ArrayList<>();
-        String status = "COMPLETED";
+        String status = STATUS_COMPLETED;
 
         // Capture BOTH stdout AND java.util.logging output during execution.
         // Tasks use LOGGER.info() so we attach a temporary handler to the root logger.
@@ -191,9 +193,7 @@ public class WorkflowApiHandler implements HttpHandler {
         // so exceptions are swallowed. We detect failure by scanning the log output.
         boolean hasFailed = logs.stream().anyMatch(l ->
                 l.contains("WORKFLOW_FAILED") || l.contains("FAILURE") || l.contains("FAILED"));
-        boolean hasCompleted = logs.stream().anyMatch(l ->
-                l.contains("WORKFLOW_COMPLETED") || l.contains("EXECUTION_COMPLETE"));
-        status = hasFailed ? "FAILED" : (hasCompleted ? "COMPLETED" : "COMPLETED");
+        status = hasFailed ? STATUS_FAILED : STATUS_COMPLETED;
 
         long endTime = System.currentTimeMillis();
         ExecutionRecord execRecord = new ExecutionRecord(execId, status, startTime, endTime, logs);
