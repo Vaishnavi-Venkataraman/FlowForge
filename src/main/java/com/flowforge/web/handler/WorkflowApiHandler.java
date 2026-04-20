@@ -192,7 +192,7 @@ public class WorkflowApiHandler implements HttpHandler {
         // Determine status from captured logs — fireTrigger() is async via ServiceBus
         // so exceptions are swallowed. We detect failure by scanning the log output.
         boolean hasFailed = logs.stream().anyMatch(l ->
-                l.contains("WORKFLOW_FAILED") || l.contains("FAILURE") || l.contains("FAILED"));
+                l.contains("WORKFLOW_FAILED") || l.contains("FAILURE") || l.contains(STATUS_FAILED));
         status = hasFailed ? STATUS_FAILED : STATUS_COMPLETED;
 
         long endTime = System.currentTimeMillis();
